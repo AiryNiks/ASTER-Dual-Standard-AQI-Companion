@@ -1,0 +1,134 @@
+/* Aster — global reset + design keyframes (ported from Aster.dc.html) */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #edf4fc;
+  color: #0f1e33;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: background 0.9s ease;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(40, 70, 130, 0.18);
+  border-radius: 8px;
+}
+
+input[type='range'] {
+  cursor: pointer;
+}
+
+@keyframes arise {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes achip {
+  50% {
+    box-shadow: 0 0 34px 6px var(--cg, transparent);
+  }
+}
+@keyframes aspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Fluid theme transitions ----------
+   Every themed surface eases its colors when the light/dark variables swap,
+   so toggling never produces a harsh cut. Inline `transition` styles on
+   individual components still take precedence where they exist. */
+.aster-root,
+.aster-root * {
+  transition-property: color, background-color, border-color, box-shadow, fill, stroke;
+  transition-duration: 0.45s;
+  transition-timing-function: ease;
+}
+
+/* ---------- Hover micro-interactions ---------- */
+.hv:hover {
+  transform: translateY(-1px) scale(1.03);
+  filter: brightness(1.06);
+}
+.hv:active {
+  transform: scale(0.96);
+}
+
+/* ---------- Forecast matrix (responsive grid) ---------- */
+.fcwrap {
+  min-width: 860px;
+}
+.fcgrid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.64fr 0.56fr 0.64fr 0.74fr 0.72fr 0.72fr 0.9fr 0.6fr 0.78fr 0.96fr 0.74fr;
+  align-items: center;
+}
+/* Row hover changes background only — a transform here widens scrollWidth inside the
+   overflow-x container and makes the scrollbar flicker on fast pointer moves. */
+.fcrow {
+  transition: background 0.25s ease;
+}
+.fcrow:hover {
+  background: var(--accent-soft) !important;
+}
+@media (max-width: 900px) {
+  .fcwrap {
+    min-width: 0;
+  }
+  .fcgrid {
+    grid-template-columns: 1.3fr 1fr 0.8fr 0.9fr 1.1fr;
+  }
+  .fc-opt {
+    display: none;
+  }
+}
+
+/* ---------- Glassy skeleton loaders ---------- */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--inset, rgba(255, 255, 255, 0.4));
+  border: 1px solid var(--inset-brd, rgba(255, 255, 255, 0.6));
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
