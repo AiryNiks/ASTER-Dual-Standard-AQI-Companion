@@ -5,6 +5,7 @@ import { useMemo, useState, type CSSProperties } from 'react'
 import { AsterMark } from './AsterMark'
 import { AtmosphereCanvas } from './AtmosphereCanvas'
 import { ForecastMatrix } from './ForecastMatrix'
+import { LocationSearch } from './LocationSearch'
 import { condIcon, verdictIcon } from './icons'
 import { effectiveSky, type Standard } from './engine'
 import { deriveView } from './derive'
@@ -16,6 +17,7 @@ interface Props {
   hap: () => void
   geolocate: (manual?: boolean) => void
   refresh: () => void
+  setLocation: (lat: number, lon: number, name: string, sub: string) => void
 }
 
 const card: CSSProperties = {
@@ -41,10 +43,11 @@ function chipSm(sel: boolean): CSSProperties {
       }
 }
 
-export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props) {
+export function MobileDashboard({ state, patch, hap, geolocate, refresh, setLocation }: Props) {
   const st = state
   const dark = st.theme === 'dark'
   const [tab, setTab] = useState<'now' | 'trends'>('now')
+  const [searchOpen, setSearchOpen] = useState(false)
   const w = st.weather
   const loading = st.loading
   const v = useMemo(() => deriveView(st, dark), [st, dark])
@@ -96,7 +99,7 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props
       <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: 'calc(env(safe-area-inset-top, 0px) + 16px) 16px 120px', zIndex: 10 }}>
         {/* location + controls */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+          <div onClick={() => { hap(); setSearchOpen(true) }} title="Search location" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, cursor: 'pointer' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent)', flexShrink: 0 }} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
             <div style={{ lineHeight: 1.1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.locName}</div>
@@ -238,6 +241,13 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props
         {navItem('now', 'Now', <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>)}
         {navItem('trends', 'Trends', <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4" /></svg>)}
       </div>
+
+      {searchOpen && (
+        <LocationSearch
+          onClose={() => setSearchOpen(false)}
+          onPick={(la, lo, n, s) => { setLocation(la, lo, n, s); setSearchOpen(false) }}
+        />
+      )}
     </div>
   )
 }

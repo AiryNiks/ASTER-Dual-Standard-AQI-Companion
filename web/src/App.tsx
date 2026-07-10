@@ -9,7 +9,7 @@ const MOBILE_QUERY = '(max-width: 640px)'
 
 export default function App() {
   const rootRef = useRef<HTMLDivElement>(null)
-  const { state, patch, hap, geolocate, refresh } = useAster()
+  const { state, patch, hap, geolocate, refresh, setLocation } = useAster()
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches)
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function App() {
       }}
     >
       {isMobile ? (
-        <MobileDashboard state={state} patch={patch} hap={hap} geolocate={geolocate} refresh={refresh} />
+        <MobileDashboard state={state} patch={patch} hap={hap} geolocate={geolocate} refresh={refresh} setLocation={setLocation} />
       ) : (
         <>
           {/* top bar */}
@@ -53,7 +53,7 @@ export default function App() {
             <span style={{ padding: '6px 12px', borderRadius: 999, background: 'var(--glass-2)', border: '1px solid var(--tint-brd)', fontSize: 12, color: 'var(--ink3)' }}>Live · Open-Meteo</span>
           </div>
 
-          <Dashboard state={state} patch={patch} hap={hap} geolocate={geolocate} refresh={refresh} />
+          <Dashboard state={state} patch={patch} hap={hap} geolocate={geolocate} refresh={refresh} setLocation={setLocation} />
         </>
       )}
     </div>

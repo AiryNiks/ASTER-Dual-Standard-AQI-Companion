@@ -197,8 +197,10 @@ export function useAster() {
     // for most Indian metro points — its finest entries are ward/zone admin polygons —
     // while OSM carries real suburbs ("Andheri West", "Powai", "Matunga East").
     try {
+      // accept-language=en pins English names — without it Nominatim follows the
+      // device's Accept-Language and can return native-script names (e.g. Devanagari).
       const r = await fetch(
-        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lon + '&zoom=16&addressdetails=1',
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lon + '&zoom=16&addressdetails=1&accept-language=en',
       )
       if (r.ok) {
         const a = (await r.json()).address || {}
@@ -273,6 +275,16 @@ export function useAster() {
     [hap, patch, loadFor],
   )
 
+  // Manual location pick (search): trust the chosen name — no reverse geocode pass.
+  const setLocation = useCallback(
+    (lat: number, lon: number, name: string, sub: string) => {
+      hap()
+      patch({ lat, lon, locName: name, locSub: sub, loading: true })
+      Promise.allSettled([fetchWeather(lat, lon), fetchAQI(lat, lon)]).then(() => patch({ loading: false }))
+    },
+    [hap, patch, fetchWeather, fetchAQI],
+  )
+
   const spinTimer = useRef<ReturnType<typeof setTimeout>>()
   const refresh = useCallback(() => {
     hap()
@@ -290,5 +302,5 @@ export function useAster() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return { state, patch, hap, geolocate, refresh }
+  return { state, patch, hap, geolocate, refresh, setLocation }
 }

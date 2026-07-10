@@ -150,6 +150,24 @@
   favicons (platform limit; PNG fallback = possible follow-up).
 - All verified live in preview (build ×2 green, console clean, screenshots).
 
+## Round 8 — 2026-07-10 (English-only names, manual location search)
+- Locality names English-pinned: Nominatim reverse now sends `accept-language=en`
+  (without it the device's Accept-Language can surface native-script OSM names —
+  the user's phone showed "बांद्रा पूर्व"). BigDataCloud fallback was already en.
+- Manual location search: new src/aster/LocationSearch.tsx — spotlight-style glass
+  panel (existing --card tokens, z-200 scrim, aspin spinner, .lsrow hover) fed by the
+  Open-Meteo geocoding API (key-less, language=en, debounced 300ms, 6 hits, stale-
+  response seq guard). Triggers: desktop location pill + mobile location row (both
+  now clickable; locate button isolated via stopPropagation). Picks call new
+  useAster.setLocation(lat,lon,name,sub) — sets names directly, re-fetches weather+AQI,
+  SKIPS reverse geocode so the chosen name isn't overwritten. Esc/Enter/scrim-close.
+- Verified live (fresh mounts): Delhi pick → NAQI 205 / EAQI 5 Very Poor / 33° (full
+  derivation reflow); Andheri/Powai/Borivali resolve w/ Indian admin subs; console
+  error-free via post-reload probe (earlier hook-order warnings = HMR-window artifacts
+  from inserting setLocation mid-session; hook order is static in source).
+- Env note: preview screenshot pipeline wedged again this round — panel verified via
+  a11y snapshot + reused (previously screenshotted) design tokens.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).

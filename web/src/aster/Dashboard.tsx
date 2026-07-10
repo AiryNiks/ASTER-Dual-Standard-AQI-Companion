@@ -1,8 +1,9 @@
-import { useMemo, type CSSProperties, type ReactNode } from 'react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { AsterMark } from './AsterMark'
 import { AtmosphereCanvas } from './AtmosphereCanvas'
 import { TiltCard } from './TiltCard'
 import { ForecastMatrix } from './ForecastMatrix'
+import { LocationSearch } from './LocationSearch'
 import { condIcon, verdictIcon } from './icons'
 import { effectiveSky, POLL_NAMES, type Standard } from './engine'
 import { deriveView } from './derive'
@@ -14,6 +15,7 @@ interface Props {
   hap: () => void
   geolocate: (manual?: boolean) => void
   refresh: () => void
+  setLocation: (lat: number, lon: number, name: string, sub: string) => void
 }
 
 // ---- shared style helpers (ported from the design) ----
@@ -65,7 +67,8 @@ function Skel({ w, h, br = 10, style }: { w: number | string; h: number; br?: nu
   return <span className="skeleton" style={{ width: w, height: h, borderRadius: br, display: 'inline-block', ...style }} />
 }
 
-export function Dashboard({ state, patch, hap, geolocate, refresh }: Props) {
+export function Dashboard({ state, patch, hap, geolocate, refresh, setLocation }: Props) {
+  const [searchOpen, setSearchOpen] = useState(false)
   const st = state
   const dark = st.theme === 'dark'
   const w = st.weather
@@ -120,13 +123,13 @@ export function Dashboard({ state, patch, hap, geolocate, refresh }: Props) {
             <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 20, color: 'var(--ink)' }}>Aster</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px 8px 15px', borderRadius: 999, background: 'var(--glass-2)', border: '1px solid var(--card-brd)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', boxShadow: 'var(--card-sh-s)' }}>
+          <div onClick={() => { hap(); setSearchOpen(true) }} title="Search location" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px 8px 15px', borderRadius: 999, background: 'var(--glass-2)', border: '1px solid var(--card-brd)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', boxShadow: 'var(--card-sh-s)', cursor: 'pointer' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent)' }} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
             <div style={{ lineHeight: 1.15 }}>
               <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{st.locName}</div>
               <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{st.locSub}</div>
             </div>
-            <button className="hv" onClick={() => geolocate(true)} title="Use my location" style={{ ...ctlBtn, marginLeft: 4, width: 38, height: 38, color: 'var(--accent)', background: 'var(--glass-2)', border: '1px solid var(--tint-brd)' }}>
+            <button className="hv" onClick={(e) => { e.stopPropagation(); geolocate(true) }} title="Use my location" style={{ ...ctlBtn, marginLeft: 4, width: 38, height: 38, color: 'var(--accent)', background: 'var(--glass-2)', border: '1px solid var(--tint-brd)' }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="7" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /></svg>
             </button>
           </div>
@@ -352,6 +355,13 @@ export function Dashboard({ state, patch, hap, geolocate, refresh }: Props) {
           <div>NAQI (CPCB) · EAQI (EEA) · Weather &amp; air data by Open-Meteo</div>
         </div>
       </div>
+
+      {searchOpen && (
+        <LocationSearch
+          onClose={() => setSearchOpen(false)}
+          onPick={(la, lo, n, s) => { setLocation(la, lo, n, s); setSearchOpen(false) }}
+        />
+      )}
     </div>
   )
 }
