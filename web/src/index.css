@@ -1,6 +1,8 @@
 /* Aster — global reset + design keyframes (ported from Aster.dc.html) */
 * {
   box-sizing: border-box;
+  /* kills the blue/grey flash Android and iOS paint over tapped controls */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Motion system: two shared curves, referenced from CSS and inline styles alike.

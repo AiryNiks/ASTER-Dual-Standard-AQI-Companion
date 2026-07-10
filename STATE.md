@@ -129,6 +129,27 @@
   loops unverifiable in hidden preview tabs; driving the app's own GL program with manual
   uniforms + drawArrays is the reliable probe path.
 
+## Round 7 — 2026-07-10 (accuracy audit, mobile Trends tab, polish)
+- AQI cross-checked vs aqi.in (Bandra East station 15:51 IST: PM2.5 10, PM10 70,
+  US-AQI 58) and Open-Meteo (PM2.5 15.3, PM10 32.4): our NAQI 62 ≈ station-implied CPCB
+  ~70, same band — NO code defect; aqi.in headlines US AQI (different scale), Google
+  Maps uses inverted 0-100 UAQI (not comparable). Documented, nothing to fix.
+- Regional-name FIX (useAster.reverseGeocode): BigDataCloud has no locality names for
+  most Mumbai points (only ward/zone polygons — Andheri/Dadar/Powai collapsed to
+  "Mumbai"). Primary source now OSM Nominatim reverse (zoom=16, addressdetails), field
+  chain suburb→neighbourhood→quarter→residential→village→town→city_district→city with
+  the ward/zone junk filter; BigDataCloud kept as fallback. Verified live: Khar /
+  Andheri West / Matunga East / Powai; in-app locate flow → "Andheri West · Mumbai,
+  Maharashtra". One request per locate (Nominatim policy-compliant).
+- Mobile bottom nav: Map + You REMOVED; Now/Trends are real tabs (useState, clickable
+  buttons). Trends = glass card w/ "Forecast horizon · 7 days" + peak summary line +
+  ForecastMatrix (5-col mobile collapse verified: 7 rows at 375px, no page overflow).
+- Tap flash fixed: `-webkit-tap-highlight-color: transparent` on the `*` reset.
+- Favicon: web/public/favicon.svg (static AsterMark replica, defs/use) + index.html
+  link (Vite base-safe). In dist ✓, served image/svg+xml ✓. Safari ignores SVG
+  favicons (platform limit; PNG fallback = possible follow-up).
+- All verified live in preview (build ×2 green, console clean, screenshots).
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).

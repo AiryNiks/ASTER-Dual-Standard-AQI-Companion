@@ -1,9 +1,10 @@
 // Mobile app layout — ported from the design's "1b · Mobile" variant (Aster.dc.html),
 // adapted for a real phone: device status bar is the OS's own, safe-area insets respected,
 // full-bleed living sky behind glass cards, bottom app nav.
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { AsterMark } from './AsterMark'
 import { AtmosphereCanvas } from './AtmosphereCanvas'
+import { ForecastMatrix } from './ForecastMatrix'
 import { condIcon, verdictIcon } from './icons'
 import { effectiveSky, type Standard } from './engine'
 import { deriveView } from './derive'
@@ -43,6 +44,7 @@ function chipSm(sel: boolean): CSSProperties {
 export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props) {
   const st = state
   const dark = st.theme === 'dark'
+  const [tab, setTab] = useState<'now' | 'trends'>('now')
   const w = st.weather
   const loading = st.loading
   const v = useMemo(() => deriveView(st, dark), [st, dark])
@@ -71,11 +73,19 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props
     ['live', 'Live'], ['clear', 'Clear'], ['clouds', 'Clouds'], ['rain', 'Rain'], ['storm', 'Storm'], ['snow', 'Snow'], ['fog', 'Fog'],
   ]
 
-  const navItem = (label: string, active: boolean, icon: React.ReactNode) => (
-    <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: active ? 'var(--accent)' : 'var(--navidle)' }}>
+  const navItem = (id: 'now' | 'trends', label: string, icon: React.ReactNode) => (
+    <button
+      key={id}
+      onClick={() => { hap(); setTab(id) }}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '2px 26px',
+        background: 'transparent', border: 'none', cursor: 'pointer', font: 'inherit',
+        color: tab === id ? 'var(--accent)' : 'var(--navidle)',
+      }}
+    >
       {icon}
-      <span style={{ fontSize: 10, fontWeight: active ? 600 : 400 }}>{label}</span>
-    </div>
+      <span style={{ fontSize: 10, fontWeight: tab === id ? 600 : 400 }}>{label}</span>
+    </button>
   )
 
   return (
@@ -106,6 +116,7 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props
           </div>
         </div>
 
+        {tab === 'now' && (<>
         {/* standard toggle */}
         <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', width: '100%', padding: 4, borderRadius: 999, background: 'var(--track)', border: '1px solid var(--track-brd)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', boxShadow: 'var(--track-sh)', marginBottom: 4 }}>
           <span style={{ position: 'absolute', top: 4, bottom: 4, left: 4, width: 'calc((100% - 8px)/3)', borderRadius: 999, background: 'var(--thumb)', boxShadow: 'var(--thumb-sh)', border: '1px solid var(--thumb-brd)', transition: 'transform .45s cubic-bezier(.16,1,.3,1)', willChange: 'transform', transform: `translateX(${sIdx * 100}%)` }} />
@@ -204,14 +215,28 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props
           <div style={{ flexShrink: 0, marginTop: 1 }}><AsterMark size={20} /></div>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.5 }}>{v.asterTake}</div>
         </div>
+        </>)}
+
+        {/* trends — 7-day forecast horizon */}
+        {tab === 'trends' && (
+          <div style={{ ...card, padding: 18, margin: '16px 0 14px' }}>
+            <div style={{ fontSize: 11, color: 'var(--eyebrow)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Forecast horizon · 7 days</div>
+            <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 12 }}>
+              Peak {v.fc.peak.label.toLowerCase()} — NAQI {v.fc.peak.naqi} · {v.fc.peak.band}
+            </div>
+            {loading ? (
+              <div>{[0, 1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="skeleton" style={{ height: 34, borderRadius: 10, margin: '9px 0' }} />)}</div>
+            ) : (
+              <ForecastMatrix rows={v.fc.raws} peakD={v.fc.peak.d} dark={dark} />
+            )}
+          </div>
+        )}
       </div>
 
       {/* bottom nav */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--navbar)', backdropFilter: 'var(--glass-f)', WebkitBackdropFilter: 'var(--glass-f)', borderTop: '1px solid var(--navbar-brd)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '12px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 20 }}>
-        {navItem('Now', true, <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>)}
-        {navItem('Trends', false, <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4" /></svg>)}
-        {navItem('Map', false, <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2Z" /><path d="M9 3v16M15 5v16" /></svg>)}
-        {navItem('You', false, <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>)}
+        {navItem('now', 'Now', <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>)}
+        {navItem('trends', 'Trends', <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4" /></svg>)}
       </div>
     </div>
   )

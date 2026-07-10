@@ -192,6 +192,29 @@ export function useAster() {
   }, [patch])
 
   const reverseGeocode = useCallback(async (lat: number, lon: number) => {
+    const junk = /\b(ward|zone|railway|council|division|region|district|metropolitan)\b/i
+    // Primary: OSM Nominatim at neighbourhood zoom. BigDataCloud has no locality names
+    // for most Indian metro points — its finest entries are ward/zone admin polygons —
+    // while OSM carries real suburbs ("Andheri West", "Powai", "Matunga East").
+    try {
+      const r = await fetch(
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lon + '&zoom=16&addressdetails=1',
+      )
+      if (r.ok) {
+        const a = (await r.json()).address || {}
+        const name = [a.suburb, a.neighbourhood, a.quarter, a.residential, a.village, a.town, a.city_district, a.city].find(
+          (n: string | undefined) => n && !junk.test(n),
+        )
+        if (name) {
+          const cityPart = a.city && a.city !== name ? a.city : a.town && a.town !== name ? a.town : null
+          const sub = [cityPart, a.state || a.county].filter(Boolean).join(', ')
+          patch({ locName: name, locSub: sub || ' ' })
+          return
+        }
+      }
+    } catch (e) {
+      /* fall through to BigDataCloud */
+    }
     try {
       const r = await fetch(
         'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lon + '&localityLanguage=en',
