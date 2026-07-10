@@ -46,7 +46,7 @@ export function deriveView(st: AsterState, dark: boolean) {
     height: 9, borderRadius: 5, flex: 1,
     background: n <= idx.eaqi.level ? SEV_COLORS[n] : 'var(--tint-brd)',
     boxShadow: !dark && n === idx.eaqi.level ? '0 0 12px ' + SEV_COLORS[n] : 'none',
-    transition: 'all .5s',
+    transition: 'all .5s var(--ease-out)',
   })) as CSSProperties[]
   let divergenceNote: string
   if (naqiOrd < idx.eaqi.level) divergenceNote = 'India rates this ' + idx.naqi.band + ', Europe rates it ' + idx.eaqi.band + '. Aster warns you to the stricter one.'

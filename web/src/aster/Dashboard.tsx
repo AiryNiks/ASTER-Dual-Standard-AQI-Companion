@@ -52,11 +52,11 @@ function chip(sel: boolean): CSSProperties {
     ? {
         padding: '9px 15px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', minHeight: 40,
         border: '1px solid var(--chip-on-brd)', background: 'var(--chip-on-bg)', color: 'var(--chip-on-fg)',
-        boxShadow: 'var(--chip-on-sh)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', transition: 'all .25s',
+        boxShadow: 'var(--chip-on-sh)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', transition: 'all .3s var(--ease-out)',
       }
     : {
         padding: '9px 15px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', minHeight: 40,
-        border: '1px solid var(--chip-off-brd)', background: 'var(--chip-off-bg)', color: 'var(--chip-off-fg)', transition: 'all .25s',
+        border: '1px solid var(--chip-off-brd)', background: 'var(--chip-off-bg)', color: 'var(--chip-off-fg)', transition: 'all .3s var(--ease-out)',
       }
 }
 
@@ -80,14 +80,14 @@ export function Dashboard({ state, patch, hap, geolocate, refresh }: Props) {
   const selStd = (s: Standard) => { hap(); patch({ standard: s }) }
   const tabStyle = (on: boolean): CSSProperties => ({
     position: 'relative', zIndex: 1, minHeight: 40, border: 'none', background: 'transparent', cursor: 'pointer',
-    fontSize: 13, transition: 'color .3s', fontFamily: 'Inter,sans-serif',
+    fontSize: 13, transition: 'color .3s var(--ease-out)', fontFamily: 'Inter,sans-serif',
     color: on ? (dark ? '#FFFFFF' : 'var(--ink)') : 'var(--ink3)', fontWeight: on ? 700 : 600,
   })
   const ctlBtn: CSSProperties = {
     height: 44, borderRadius: 999, border: '1px solid var(--track-brd)', background: 'var(--track)', color: 'var(--ink2)',
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
     backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', boxShadow: 'var(--card-sh-s)',
-    transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s, filter .25s',
+    // no inline transition: every ctlBtn carries .hv, whose spring/ease set governs.
   }
 
   const actChips: [string, string][] = [
@@ -133,7 +133,7 @@ export function Dashboard({ state, patch, hap, geolocate, refresh }: Props) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', width: 264, padding: 4, borderRadius: 999, background: 'var(--track)', border: '1px solid var(--track-brd)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', boxShadow: 'var(--track-sh)' }}>
-              <span style={{ position: 'absolute', top: 4, bottom: 4, left: 4, width: 'calc((100% - 8px)/3)', borderRadius: 999, background: 'var(--thumb)', boxShadow: 'var(--thumb-sh)', border: '1px solid var(--thumb-brd)', transition: 'transform .45s cubic-bezier(.16,1,.3,1)', transform: `translateX(${sIdx * 100}%)` }} />
+              <span style={{ position: 'absolute', top: 4, bottom: 4, left: 4, width: 'calc((100% - 8px)/3)', borderRadius: 999, background: 'var(--thumb)', boxShadow: 'var(--thumb-sh)', border: '1px solid var(--thumb-brd)', transition: 'transform .45s cubic-bezier(.16,1,.3,1)', willChange: 'transform', transform: `translateX(${sIdx * 100}%)` }} />
               <button onClick={() => selStd('naqi')} style={tabStyle(std === 'naqi')}>NAQI</button>
               <button onClick={() => selStd('eaqi')} style={tabStyle(std === 'eaqi')}>EAQI</button>
               <button onClick={() => selStd('strictest')} style={tabStyle(std === 'strictest')}>Strictest</button>
@@ -245,7 +245,7 @@ export function Dashboard({ state, patch, hap, geolocate, refresh }: Props) {
                 <div style={{ position: 'relative', width: 184, height: 184, flexShrink: 0 }}>
                   <svg width="184" height="184" viewBox="0 0 220 220">
                     <circle cx="110" cy="110" r="84" fill="none" style={{ stroke: 'var(--tint-brd)' }} strokeWidth="15" strokeLinecap="round" strokeDasharray="395.84 527.79" transform="rotate(135 110 110)" />
-                    <circle cx="110" cy="110" r="84" fill="none" stroke={v.naqiColor} strokeWidth="15" strokeLinecap="round" strokeDasharray={(v.naqiFrac * 395.84).toFixed(1) + ' 527.79'} transform="rotate(135 110 110)" style={{ transition: 'stroke-dasharray .9s cubic-bezier(.16,1,.3,1),stroke .9s', filter: 'drop-shadow(0 3px 8px rgba(40,70,130,0.25))' }} />
+                    <circle cx="110" cy="110" r="84" fill="none" stroke={v.naqiColor} strokeWidth="15" strokeLinecap="round" strokeDasharray={(v.naqiFrac * 395.84).toFixed(1) + ' 527.79'} transform="rotate(135 110 110)" style={{ transition: 'stroke-dasharray .9s cubic-bezier(.16,1,.3,1), stroke .9s var(--ease-out)', filter: 'drop-shadow(0 3px 8px rgba(40,70,130,0.25))' }} />
                   </svg>
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ fontSize: 11, color: 'var(--ink3)', letterSpacing: '0.1em' }}>NAQI</div>

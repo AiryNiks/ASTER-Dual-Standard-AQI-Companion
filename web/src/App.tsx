@@ -31,7 +31,7 @@ export default function App() {
       style={{
         minHeight: '100vh',
         background: 'var(--page-bg)',
-        transition: 'background .9s ease',
+        transition: 'background .9s var(--ease-out)',
         padding: isMobile ? 0 : '38px clamp(16px,3.5vw,56px) 96px',
         fontFamily: 'Inter,system-ui,sans-serif',
         color: 'var(--ink)',

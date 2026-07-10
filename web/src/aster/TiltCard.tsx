@@ -44,6 +44,7 @@ export function TiltCard({
       style={{
         position: 'relative',
         transition: 'transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s cubic-bezier(.16,1,.3,1)',
+        willChange: 'transform',
         transformStyle: 'preserve-3d',
         ...style,
       }}
@@ -69,7 +70,7 @@ export function TiltCard({
           overflow: 'hidden',
           pointerEvents: 'none',
           opacity: 0,
-          transition: 'opacity .4s',
+          transition: 'opacity .4s var(--ease-out)',
           mixBlendMode: 'screen',
         }}
       />

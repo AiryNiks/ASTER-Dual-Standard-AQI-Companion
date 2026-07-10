@@ -78,6 +78,34 @@
   references; build output hashes identical before/after).
 - Repo: git init + initial commit (identity set locally: Aryan / fifafiesta26@gmail.com).
 
+## Round 5 — 2026-07-10 (celestial realism + motion system)
+- Sun rebuilt (AtmosphereCanvas.tsx shader): limb-darkened photosphere (cream core →
+  gold → deep-amber rim, mu-based), two-scale drifting granulation, thin chromosphere
+  ring, AA'd edge, hot outside rim light, 3-layer volumetric corona (long-tail aura that
+  TINTS sky amber + wispy fbm-modulated mid halo + hot bloom). R=0.066·um; anchor stays
+  (0.76,0.88) — LOCKED judgment: every viewport band is card-covered, sun-behind-frosted-
+  glass is the design language (moon mirrors it top-left).
+- Stars rebuilt: 3 lattice depths (190/0.84, 120/0.86 grids via starLayer + 64-grid hero
+  stars inline) — per-star size/brightness/color-temp (blue-white vs warm), organic
+  twinkle from two beating sines w/ per-star rate/phase/depth; hero stars get soft
+  4-point flares. Star pass wrapped in uniform-coherent if(starVis) → light mode pays 0.
+- Motion system: :root --ease-out cubic-bezier(.33,1,.68,1) + --ease-spring (.34,1.4,.64,1)
+  in index.css; blanket theme fade, .hv (8-prop list + will-change:transform), .fcrow,
+  body/App root, chips/tabs/gauges/derive segs, TiltCard (will-change) all on the curves;
+  ctlBtn inline transitions REMOVED (the .hv class governs). Shader dark-channel smoothing
+  rate 3.4 (τ≈0.29s) so the sky tracks the 0.45s CSS theme cross-fade.
+- Mobile = same shader (shared AtmosphereCanvas); MobileDashboard mirrors every inline
+  upgrade incl. gauge stroke easing (was linear .9s, no stroke transition).
+- VERIFIED LIVE (preview + pixel probes, Intel UHD/ANGLE): build green; shader compiles
+  both themes (no console errors); sun circularity 1.000 exact on desktop 1180×1743 AND
+  mobile 469×1015, center (0.759,0.122)/(0.758,0.120) vs (0.76,0.12) expected; limb
+  profile 238→206→177 lum w/ blue collapse; granulation animates (0.44Δ/0.9s); star
+  coverage 4.7–11.8% of sky pixels (≈7× density), twinkle organic (balanced ±, 99% of
+  changes on star pixels); theme fade pixel-sampled smooth/monotonic; fps p50 16.7ms
+  (60fps, mobile-size dark steady) / 20.5ms transient during theme flip on 2M-px desktop
+  canvas. Sandbox emulates prefers-reduced-motion → CSS durations verified via computed
+  styles; shader fade unaffected by that media query.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).
