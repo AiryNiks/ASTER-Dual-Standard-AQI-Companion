@@ -162,7 +162,14 @@ if(moonGate>0.004){
   float mhalo=exp(-md2*md2*13.0)*0.4+exp(-md2*md2*3.5)*0.10;
   col+=(mcol*mdisc+vec3(0.50,0.60,0.90)*mhalo)*moonGate;
 }
-float drift=0.55+uWind*1.3;float th=mix(0.80,0.26,uCloud);
+float drift=0.55+uWind*1.3;
+// In pure CLOUDS mode (high cloud, no rain/storm/snow/fog) drive a clearly visible drift.
+// Scoped via cloudsMode (≈1 only in clouds mode, ≈0 in rain/storm/snow/fog) so every other
+// mode keeps its exact existing cloud motion. Only translates the noise — structure/colour
+// are untouched. Applies equally in light and dark (drift is theme-independent).
+float cloudsMode=smoothstep(0.45,0.68,uCloud*(1.0-uRain)*(1.0-uStorm)*(1.0-uSnow)*(1.0-uFog));
+drift+=cloudsMode*2.0;
+float th=mix(0.80,0.26,uCloud);
 vec2 q1=p*1.5+vec2(t*0.014*drift,t*0.0015)+3.7;float f1=fbm(q1+vnoise(q1*2.1)*0.45);float c1=smoothstep(th,th+0.45,f1);
 vec2 q2=p*3.0+vec2(t*0.030*drift,-t*0.002)+11.9;float f2=fbm(q2+vnoise(q2*1.9)*0.35);float c2=smoothstep(th+0.04,th+0.40,f2);
 float cd=clamp(c1*0.72+c2*0.45,0.0,1.0);cd*=mix(1.0,smoothstep(0.06,0.42,uv.y),0.30);
@@ -173,6 +180,9 @@ vec3 cloudCol=mix(cloudLight,cloudDeep,darkSky);
 // billow shading keeps drifting structure visible even at full overcast (no flat sheet)
 float billow=0.84+0.34*(f1-0.5)+0.20*(f2-0.5);
 cloudCol*=clamp(billow,0.62,1.18);
+// Lift night clouds in CLOUDS mode only (scoped by cloudsMode → rain/storm dark clouds
+// untouched) so their drift is clearly visible against the dark sky, as in light mode.
+cloudCol*=1.0+cloudsMode*uDark*0.6;
 cloudCol=mix(cloudCol,cloudCol*vec3(0.66,0.69,0.74),gloom*0.8*(1.0-uDark*0.5));
 cloudCol+=vec3(1.0,0.98,1.15)*uFlash*(0.35+cd)*1.1;
 col=mix(col,cloudCol,cd*0.92);
@@ -189,13 +199,24 @@ if(uSnow>0.003){
 }
 if(uFog>0.003){
   vec3 fogCol=mix(vec3(0.42,0.47,0.55),vec3(0.80,0.84,0.90),uDay*0.7);
-  fogCol=mix(fogCol,vec3(0.13,0.155,0.21),uDark);
-  float breathe=0.82+0.18*sin(t*0.22+p.x*0.7);
-  float fa=uFog*(0.5+0.5*fbm(p*2.2+vec2(t*0.018,sin(t*0.1)*0.05)));
-  float band=0.35+0.35*fbm(vec2(p.x*1.1-t*0.025,uv.y*3.0));
+  // Night fog is lit ambient grey (glows with city light), not near-black — dark enough
+  // to read as night, light enough that its drifting wisps are actually visible.
+  fogCol=mix(fogCol,vec3(0.32,0.36,0.44),uDark);
+  float breathe=0.82+0.18*sin(t*0.20+p.x*0.7);
+  // Two fog banks drifting at different speeds/directions.
+  float d1=fbm(p*2.3+vec2(t*0.060,sin(t*0.12)*0.06));
+  float d2=fbm(p*1.5+vec2(-t*0.042,t*0.014)+9.0);
+  // Patchy density — clear-ish gaps and dense wisps that drift, so the fog visibly ROLLS
+  // instead of sitting as a flat wash of fogCol (the original static-looking bug).
+  float n=smoothstep(0.2,0.8,0.6*d1+0.4*d2);
+  float fa=uFog*(0.32+0.68*n);
+  float band=0.35+0.35*fbm(vec2(p.x*1.1-t*0.06,uv.y*3.0));
   fa=max(fa,uFog*band*smoothstep(0.75,0.15,uv.y));
-  fa*=(0.45+0.55*pow(1.0-uv.y,1.4))*breathe;
-  col=mix(col,fogCol,clamp(fa,0.0,0.92));
+  fa*=(0.5+0.5*pow(1.0-uv.y,1.4))*breathe;
+  // Drifting luminance wisps (centred on 1.0 → average brightness preserved in both
+  // light and dark) give the rolling structure real contrast, dark palette included.
+  float wisp=clamp(1.0+0.70*(d1-0.5)-0.40*(d2-0.5),0.45,1.6);
+  col=mix(col,fogCol*wisp,clamp(fa,0.0,0.94));
 }
 float hz=pow(1.0-uv.y,4.5)*uHaze;hz*=0.6+0.4*fbm(vec2(p.x*2.4+t*0.02,uv.y*5.0));col=mix(col,uHazeColor,clamp(hz,0.0,1.0)*0.30*(1.0-uDark*0.45));
 col+=vec3(0.85,0.9,1.1)*uFlash*0.22;

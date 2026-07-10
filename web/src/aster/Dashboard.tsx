@@ -301,7 +301,7 @@ export function Dashboard({ state, patch, hap, geolocate, refresh, setLocation }
               Worst air <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{v.fc.peak.label.toLowerCase() === 'today' ? 'today' : v.fc.peak.label}</span> — NAQI <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{v.fc.peak.naqi}</span> {v.fc.peak.band}, {v.fc.peak.domName}-driven, as wind eases to {v.fc.peak.wind} km/h and humidity climbs to {v.fc.peak.rh}%.
             </div>
           </div>
-          {loading ? skelRows : <ForecastMatrix rows={v.fc.raws} peakD={v.fc.peak.d} dark={dark} />}
+          {loading ? skelRows : <ForecastMatrix rows={v.fc.raws} dark={dark} />}
           </div>
         </TiltCard>
 

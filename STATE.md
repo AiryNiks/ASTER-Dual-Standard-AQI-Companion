@@ -215,6 +215,33 @@
   coarse (19.070), watch cleared, no hang. Options object asserted correct. Build green,
   console clean. Real GPS unavailable in sandbox so logic proven via injected fixes.
 
+## Round 12 — 2026-07-11 (forecast highlight, load delay, cloud/fog motion)
+- (1) Default-selected day REMOVED: ForecastMatrix no longer paints the peak row
+  (r.d===peakD → accent bg). peakD prop dropped from component + both call sites (grep
+  clean). Verified 0 highlighted rows, desktop + mobile Trends, 7 rows each.
+- (2) ~5s load delay FIXED: root cause was Round-11's watchPosition change — data loading
+  was gated behind the GPS fix. Mount now paints DEFAULT (Mumbai) weather+AQI immediately
+  (reqSeq-guarded, no reverse-geocode so label stays "Mumbai") and runs geolocate(false)
+  in parallel to refine. Verified via Resource Timing: AQI/weather done ~600ms after nav
+  (was: waited on 10s watchPosition deadline when GPS slow/denied).
+- (3) Clouds motion (clouds mode, light+dark): added cloudsMode factor
+  =smoothstep(0.45,0.68, uCloud*(1-uRain)*(1-uStorm)*(1-uSnow)*(1-uFog)) — ≈1 ONLY in
+  clouds/live-cloudy, ≈0 elsewhere. drift+=cloudsMode*2.0 (translation only). Dark clouds
+  lifted cloudCol*=1+cloudsMode*uDark*0.6 for night visibility. Measured drift: light 54.5%,
+  dark 19.6% (was ~2.8%).
+- (4) Fog motion (fog mode, light+dark): fog was a flat saturated wash → looked static
+  (the actual bug, present in original too). Now: patchy drifting density
+  (smoothstep→0.32..1.0), faster 2-bank drift, moving luminance wisps (centred on 1.0),
+  and dark fogCol brightened 0.13→0.32 (lit night fog) for visible contrast. Measured
+  drift: light 13.2%, dark 17.6% (was 0%/0%). Fog block is inside if(uFog>0.003) → other
+  modes untouched by construction.
+- SCOPING (user: "strictly don't change other modes"): cloudsMode=0 for rain/storm/snow/
+  clear (product<0.45) → drift boost + dark-cloud lift never apply; fog edits gated on
+  uFog>0. Rain ref drift unchanged (18.8%). VERIFIED via manual shader-uniform drive +
+  readPixels drift (tab backgrounded → app rAF paused, so drove the program directly, as
+  in prior rounds). Build green ×5, console clean, no shader-compile errors, app renders
+  desktop+mobile. Live 60fps rAF animation confirmed in earlier rounds.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).

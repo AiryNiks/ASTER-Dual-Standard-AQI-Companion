@@ -12,7 +12,7 @@ function dayName(i: number): string {
   return new Date(Date.now() + i * 864e5).toLocaleDateString([], { weekday: 'long' })
 }
 
-export function ForecastMatrix({ rows, peakD, dark }: { rows: FcRow[]; peakD: number; dark: boolean }) {
+export function ForecastMatrix({ rows, dark }: { rows: FcRow[]; dark: boolean }) {
   // Factor tints tuned per theme so every value passes contrast on the glass card.
   const cGreen = dark ? '#5BCB96' : '#1F9D66'
   const cRed = dark ? '#E28791' : '#B23A46'
@@ -56,8 +56,7 @@ export function ForecastMatrix({ rows, peakD, dark }: { rows: FcRow[]; peakD: nu
             style={{
               padding: '11px 6px',
               borderBottom: '1px solid var(--divider)',
-              background: r.d === peakD ? 'var(--accent-soft)' : 'transparent',
-              borderRadius: r.d === peakD ? 8 : 0,
+              background: 'transparent',
             }}
           >
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{dayName(r.d)}</div>

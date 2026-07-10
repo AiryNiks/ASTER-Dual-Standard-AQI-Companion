@@ -344,11 +344,18 @@ export function useAster() {
     spinTimer.current = setTimeout(() => patch({ spinning: false }), 850)
   }, [hap, patch, loadFor, state.lat, state.lon])
 
-  // Ask for the user's location on first paint. Granted → their coords + regional
-  // locality name (reverse-geocoded, e.g. "Bandra West"); denied, timed out, or no
-  // geolocation API → fall back to Mumbai.
+  // Paint the default location's data immediately so the app is interactive at once,
+  // instead of holding skeletons for the whole geolocation resolve (a permission prompt
+  // plus a GPS fix can take several seconds). Geolocation then refines to the user's real
+  // location in the background — the request-token guard lets its result supersede this.
+  // Reverse-geocode is skipped here so the label stays the friendly "Mumbai" until the
+  // real fix names the neighbourhood.
   useEffect(() => {
-    geolocate(false, () => loadFor(19.076, 72.8777))
+    const seq = ++reqSeq.current
+    Promise.allSettled([fetchWeather(19.076, 72.8777, seq), fetchAQI(19.076, 72.8777, seq)]).then(() => {
+      if (seq === reqSeq.current) patch({ loading: false })
+    })
+    geolocate(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

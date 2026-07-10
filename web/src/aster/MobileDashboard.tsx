@@ -230,7 +230,7 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh, setLoca
             {loading ? (
               <div>{[0, 1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="skeleton" style={{ height: 34, borderRadius: 10, margin: '9px 0' }} />)}</div>
             ) : (
-              <ForecastMatrix rows={v.fc.raws} peakD={v.fc.peak.d} dark={dark} />
+              <ForecastMatrix rows={v.fc.raws} dark={dark} />
             )}
           </div>
         )}
