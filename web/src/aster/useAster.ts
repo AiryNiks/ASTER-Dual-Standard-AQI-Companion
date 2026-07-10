@@ -339,10 +339,16 @@ export function useAster() {
   const refresh = useCallback(() => {
     hap()
     patch({ spinning: true })
-    loadFor(state.lat, state.lon)
+    // Re-fetch conditions only — NOT the location name. The coordinates are unchanged, so
+    // the current name is already correct; reverse-geocoding here would overwrite a
+    // manually-searched name (e.g. "Delhi" → an OSM neighbourhood) on every refresh.
+    const seq = ++reqSeq.current
+    Promise.allSettled([fetchWeather(state.lat, state.lon, seq), fetchAQI(state.lat, state.lon, seq)]).then(() => {
+      if (seq === reqSeq.current) patch({ loading: false })
+    })
     if (spinTimer.current) clearTimeout(spinTimer.current)
     spinTimer.current = setTimeout(() => patch({ spinning: false }), 850)
-  }, [hap, patch, loadFor, state.lat, state.lon])
+  }, [hap, patch, fetchWeather, fetchAQI, state.lat, state.lon])
 
   // Paint the default location's data immediately so the app is interactive at once,
   // instead of holding skeletons for the whole geolocation resolve (a permission prompt

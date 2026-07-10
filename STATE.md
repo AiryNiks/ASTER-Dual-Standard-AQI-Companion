@@ -242,6 +242,23 @@
   in prior rounds). Build green ×5, console clean, no shader-compile errors, app renders
   desktop+mobile. Live 60fps rAF animation confirmed in earlier rounds.
 
+## Round 13 — 2026-07-11 (code review fix: refresh preserved name)
+- Review of rounds 8–12 code. One real user-facing bug: refresh() called loadFor() which
+  reverse-geocodes, so hitting Refresh after a manual search (setLocation, which trusts the
+  picked name) OVERWROTE that name with an OSM neighbourhood for the same coords (e.g.
+  "Delhi" → "Connaught Place"). Coords don't change on refresh, so the name was already
+  correct — refresh now re-fetches weather+AQI only (reqSeq-guarded), leaving locName/locSub
+  intact. loadFor (with reverseGeocode) is now used ONLY by geolocate for NEW locations.
+- Reviewed and deemed OK (no fix): request-token race guard, reconcileWeatherCode scoping,
+  24h-mean/8h-max aggregation, watchPosition accuracy+deadline logic, LocationSearch (query
+  encodeURIComponent'd, seq guard, key uniqueness). Noted-not-fixed: mount effect has no
+  cleanup for the geolocation watch — benign (App root never unmounts; watch self-cleans at
+  the 10s deadline; StrictMode dev double-watch each self-cleans).
+- VERIFICATION: build green (tsc+vite). Live runtime re-check (pick Delhi → refresh → name
+  persists) BLOCKED this session — browser-automation classifier externally unavailable.
+  Change is a minimal removal of reverseGeocode from the refresh path; the search/setLocation
+  flow itself was runtime-verified in Round 8. Re-verify live when the browser tool returns.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).
