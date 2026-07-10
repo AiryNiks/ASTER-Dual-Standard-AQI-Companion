@@ -275,18 +275,49 @@ export function useAster() {
         if (onFail) onFail()
         return
       }
-      navigator.geolocation.getCurrentPosition(
+      // watchPosition (not getCurrentPosition) so we can wait past the first coarse
+      // network fix for a sharper GPS one. getCurrentPosition would return that early
+      // low-accuracy fix — the "wrong neighbourhood on load, right after refresh" bug.
+      // maximumAge:0 forbids a stale cached position; enableHighAccuracy:true asks for GPS.
+      let done = false
+      let best: { la: number; lo: number; acc: number } | null = null
+      let watchId: number | null = null
+      let deadline: ReturnType<typeof setTimeout>
+      const cleanup = () => {
+        if (watchId != null) navigator.geolocation.clearWatch(watchId)
+        clearTimeout(deadline)
+      }
+      const commit = (la: number, lo: number) => {
+        if (done) return
+        done = true
+        cleanup()
+        patch({ lat: la, lon: lo })
+        loadFor(la, lo)
+      }
+      const giveUp = () => {
+        if (done) return
+        done = true
+        cleanup()
+        if (onFail) onFail()
+      }
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const la = pos.coords.latitude
           const lo = pos.coords.longitude
-          patch({ lat: la, lon: lo })
-          loadFor(la, lo)
+          const acc = pos.coords.accuracy
+          if (!best || acc < best.acc) best = { la, lo, acc }
+          if (acc <= 100) commit(la, lo) // neighbourhood-sharp — commit immediately
         },
         () => {
-          if (onFail) onFail()
+          /* transient errors: let the deadline decide using the best fix so far */
         },
-        { timeout: 12000, maximumAge: 6e5, enableHighAccuracy: false },
+        { timeout: 15000, maximumAge: 0, enableHighAccuracy: true },
       )
+      // Hard deadline: take the sharpest fix gathered so far, else fall back.
+      deadline = setTimeout(() => {
+        if (best) commit(best.la, best.lo)
+        else giveUp()
+      }, 10000)
     },
     [hap, patch, loadFor],
   )

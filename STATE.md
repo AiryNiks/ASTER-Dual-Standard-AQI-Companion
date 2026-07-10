@@ -200,6 +200,21 @@
   verified via page-text + Node, per prior rounds.)
 - Git: confirmed local == origin/main before starting (d11310b, all verified files pushed).
 
+## Round 11 — 2026-07-10 (first-load location accuracy)
+- Bug: on first load location was wrong (Kurla West), only correct (Bandra East) after a
+  re-fetch. Cause = geolocate options `{ maximumAge: 6e5, enableHighAccuracy: false }`:
+  accepted a 10-min-stale cached position AND used coarse network location (km-off), and
+  getCurrentPosition returns the FIRST (coarse) fix before GPS locks.
+- FIX (useAster.geolocate): switched to watchPosition with
+  `{ enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }`. Commits the first fix with
+  accuracy ≤100m (neighbourhood-sharp); a 10s deadline commits the best fix gathered so far
+  (else onFail→Mumbai). clearWatch + done-guard on every exit path (commit/giveUp) — no
+  leak, no double-commit, no stuck-loading.
+- Verified live (mocked watchPosition): (a) coarse fix acc 2500 fires NO fetch → sharp fix
+  acc 40 commits (19.064 Bandra), watch cleared; (b) only-coarse → 10s deadline commits best
+  coarse (19.070), watch cleared, no hang. Options object asserted correct. Build green,
+  console clean. Real GPS unavailable in sandbox so logic proven via injected fixes.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).
