@@ -184,6 +184,22 @@
 - No security/perf findings: no secrets, no XSS sinks, search query encodeURIComponent'd,
   canvas rAF loop already has full teardown. Build green.
 
+## Round 10 — 2026-07-10 (weather condition accuracy)
+- Bug: app showed "Light drizzle" while Google/reality said cloudy. Root cause = Open-Meteo
+  WMO weather_code 51 (light drizzle) returned off TRACE modeled precip (0.1mm) at 74–93%
+  cloud. App was faithful to the API, but the API over-reports drizzle on negligible precip.
+- FIX (engine.ts reconcileWeatherCode + useAster.fetchWeather): light-precip codes
+  {51,53,56,57,61} carrying <0.2mm are reclassified by cloud cover (≥70→Overcast, ≥40→Partly
+  cloudy, ≥15→Mostly clear, else Clear). Moderate/heavy rain (63/65), showers (80+), snow,
+  fog, storms are NEVER touched — genuine precip always stands. Reconciled code drives label,
+  icon, kind AND sky (deriveSky), so the rendered atmosphere matches too.
+- Verified: 12/12 unit cases (incl. real 0.3mm drizzle + 0.2mm light rain preserved; heavy
+  rain/storm/fog untouched); live Mumbai raw 51/0.1mm/93% → Overcast; running app renders
+  "Overcast · Feels" (no "Light drizzle"), zero console errors, build green. Desktop+mobile
+  share state.weather so both fixed. (Screenshot pipeline wedged by WebGL canvas again —
+  verified via page-text + Node, per prior rounds.)
+- Git: confirmed local == origin/main before starting (d11310b, all verified files pushed).
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).

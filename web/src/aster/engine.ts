@@ -363,6 +363,27 @@ export function verdict(band: number, act: string, prof: string): Verdict {
   return { key, label, color, fg, risk, headline, reasoning, prec }
 }
 
+// Open-Meteo's WMO weather_code can report a light-precipitation code (drizzle / slight
+// rain) off trace modeled precip — e.g. code 51 "light drizzle" with only 0.1 mm and 74%
+// cloud, which everyone else (and the sky itself) reads as simply cloudy. When a LIGHT
+// precip code carries under a perceptible amount of precipitation, reclassify it by cloud
+// cover. Moderate/heavy rain (63/65), showers (80+), snow, fog and storms are never
+// touched, so genuine precipitation always stands.
+const LIGHT_PRECIP_CODES = new Set([51, 53, 56, 57, 61])
+const PRECIP_MIN_MM = 0.2
+export function reconcileWeatherCode(
+  code: number,
+  precipMm: number | null | undefined,
+  cloud: number | null | undefined,
+): number {
+  if (!LIGHT_PRECIP_CODES.has(code) || (precipMm || 0) >= PRECIP_MIN_MM) return code
+  const cc = cloud == null ? 100 : cloud
+  if (cc >= 70) return 3 // Overcast
+  if (cc >= 40) return 2 // Partly cloudy
+  if (cc >= 15) return 1 // Mostly clear
+  return 0 // Clear sky
+}
+
 // ---- Weather → sky derivation ----
 export function kindOf(c: number): SceneKind {
   if (c >= 95) return 'storm'

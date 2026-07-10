@@ -5,6 +5,7 @@ import {
   deriveSky,
   duskF,
   kindOf,
+  reconcileWeatherCode,
   WMO,
   type RawPollutants,
   type SkyMode,
@@ -96,8 +97,11 @@ export function useAster() {
       ;((j.daily && j.daily.sunrise) || []).forEach((s: string) => sun.push(new Date(s).getTime()))
       ;((j.daily && j.daily.sunset) || []).forEach((s: string) => sun.push(new Date(s).getTime()))
       const dusk = duskF(Date.now(), sun)
+      // Correct trace-precip drizzle codes to their real (cloud-based) condition before
+      // it drives the label, icon and sky — see reconcileWeatherCode.
+      const code = reconcileWeatherCode(c.weather_code, c.precipitation, c.cloud_cover)
       const sky = deriveSky({
-        code: c.weather_code,
+        code,
         isDay: c.is_day === 1,
         cloudCover: c.cloud_cover,
         windKmh: c.wind_speed_10m,
@@ -114,10 +118,10 @@ export function useAster() {
           windKmh: c.wind_speed_10m,
           precipMm: c.precipitation,
           rainChance: rc,
-          code: c.weather_code,
+          code,
           isDay: c.is_day === 1,
-          label: WMO[c.weather_code] || 'Unsettled',
-          kind: kindOf(c.weather_code),
+          label: WMO[code] || 'Unsettled',
+          kind: kindOf(code),
           sky,
         },
       })
