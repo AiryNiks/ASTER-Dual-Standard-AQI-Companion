@@ -168,6 +168,22 @@
 - Env note: preview screenshot pipeline wedged again this round — panel verified via
   a11y snapshot + reused (previously screenshotted) design tokens.
 
+## Round 9 — 2026-07-10 (code review: location fetch race fix)
+- Reviewed full web/src. One substantive bug: useAster fetch results were unguarded, so
+  a slow response for an OLD location could overwrite a NEWER one (rapid search/locate/
+  refresh) — showing e.g. Delhi's AQI under the name "Mumbai". Exactly the "wrong AQI"
+  class the user flagged.
+- FIX: monotonic reqSeq ref. fetchWeather/fetchAQI/reverseGeocode take a seq token and
+  drop their patch if seq !== reqSeq.current; loadFor/setLocation bump the token and gate
+  the loading:false flip. (LocationSearch already had its own result-seq guard; unchanged.)
+- Verified live (clean full-reload mount, prod code): shimmed Delhi AQI to resolve 2.5s
+  LATE, then rapid Delhi→Mumbai pick → Mumbai NAQI 62 survives (would've been ~205 pre-
+  fix); single Delhi pick still correctly shows 205; zero console errors post-reload.
+  (Hook-order warnings seen mid-edit were HMR artifacts of adding a useRef — gone after
+  full reload, confirmed clean.)
+- No security/perf findings: no secrets, no XSS sinks, search query encodeURIComponent'd,
+  canvas rAF loop already has full teardown. Build green.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).

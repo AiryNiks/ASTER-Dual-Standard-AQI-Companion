@@ -60,6 +60,11 @@ export function useAster() {
   })
   const patch = useCallback((p: Partial<AsterState>) => setState((s) => ({ ...s, ...p })), [])
 
+  // Monotonic request token. Every location load bumps it; each async result checks it
+  // before writing, so a slow response for an old location can never overwrite a newer
+  // one when the user rapidly searches/relocates. Refs are stable — no dep-array churn.
+  const reqSeq = useRef(0)
+
   const hap = useCallback(() => {
     try {
       navigator.vibrate && navigator.vibrate(8)
@@ -68,7 +73,7 @@ export function useAster() {
     }
   }, [])
 
-  const fetchWeather = useCallback(async (lat: number, lon: number) => {
+  const fetchWeather = useCallback(async (lat: number, lon: number, seq?: number) => {
     try {
       const url =
         'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
@@ -99,6 +104,7 @@ export function useAster() {
         precipMm: c.precipitation,
         dusk,
       })
+      if (seq != null && seq !== reqSeq.current) return
       patch({
         observedAt: c.time,
         weather: {
@@ -120,7 +126,7 @@ export function useAster() {
     }
   }, [patch])
 
-  const fetchAQI = useCallback(async (lat: number, lon: number) => {
+  const fetchAQI = useCallback(async (lat: number, lon: number, seq?: number) => {
     try {
       const POLLS = 'pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,ammonia'
       const url =
@@ -185,13 +191,15 @@ export function useAster() {
         nh3: null,
         pb: null,
       }
+      if (seq != null && seq !== reqSeq.current) return
       patch({ raw, rawNaqi, rawEaqi })
     } catch (e) {
       /* keep sample */
     }
   }, [patch])
 
-  const reverseGeocode = useCallback(async (lat: number, lon: number) => {
+  const reverseGeocode = useCallback(async (lat: number, lon: number, seq?: number) => {
+    const stale = () => seq != null && seq !== reqSeq.current
     const junk = /\b(ward|zone|railway|council|division|region|district|metropolitan)\b/i
     // Primary: OSM Nominatim at neighbourhood zoom. BigDataCloud has no locality names
     // for most Indian metro points — its finest entries are ward/zone admin polygons —
@@ -208,6 +216,7 @@ export function useAster() {
           (n: string | undefined) => n && !junk.test(n),
         )
         if (name) {
+          if (stale()) return
           const cityPart = a.city && a.city !== name ? a.city : a.town && a.town !== name ? a.town : null
           const sub = [cityPart, a.state || a.county].filter(Boolean).join(', ')
           patch({ locName: name, locSub: sub || ' ' })
@@ -234,6 +243,7 @@ export function useAster() {
         .filter((e) => e.name !== j.city && e.name !== j.principalSubdivision && e.name !== j.countryName)
         .sort((a, b) => (b.order || 0) - (a.order || 0))
       const name = cand[0]?.name || j.locality || j.city || j.principalSubdivision || 'Your location'
+      if (stale()) return
       const cityPart = j.city && j.city !== name ? j.city : null
       const sub = [cityPart, j.principalSubdivision || j.countryName].filter(Boolean).join(', ')
       patch({ locName: name, locSub: sub || ' ' })
@@ -245,9 +255,11 @@ export function useAster() {
   const loadFor = useCallback(
     (lat: number, lon: number) => {
       // Skeletons clear once both data fetches settle (success or fallback to sample).
-      Promise.allSettled([fetchWeather(lat, lon), fetchAQI(lat, lon), reverseGeocode(lat, lon)]).then(() =>
-        patch({ loading: false }),
-      )
+      // Only the latest load may flip loading off, so a stale settle can't clear a fresh one.
+      const seq = ++reqSeq.current
+      Promise.allSettled([fetchWeather(lat, lon, seq), fetchAQI(lat, lon, seq), reverseGeocode(lat, lon, seq)]).then(() => {
+        if (seq === reqSeq.current) patch({ loading: false })
+      })
     },
     [fetchWeather, fetchAQI, reverseGeocode, patch],
   )
@@ -279,8 +291,11 @@ export function useAster() {
   const setLocation = useCallback(
     (lat: number, lon: number, name: string, sub: string) => {
       hap()
+      const seq = ++reqSeq.current
       patch({ lat, lon, locName: name, locSub: sub, loading: true })
-      Promise.allSettled([fetchWeather(lat, lon), fetchAQI(lat, lon)]).then(() => patch({ loading: false }))
+      Promise.allSettled([fetchWeather(lat, lon, seq), fetchAQI(lat, lon, seq)]).then(() => {
+        if (seq === reqSeq.current) patch({ loading: false })
+      })
     },
     [hap, patch, fetchWeather, fetchAQI],
   )
