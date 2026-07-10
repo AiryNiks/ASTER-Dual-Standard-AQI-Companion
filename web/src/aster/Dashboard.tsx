@@ -75,7 +75,7 @@ export function Dashboard({ state, patch, hap, geolocate, refresh }: Props) {
 
   const std = st.standard
   const sIdx = std === 'naqi' ? 0 : std === 'eaqi' ? 1 : 2
-  const sky = useMemo(() => effectiveSky(w, st.raw, st.skyMode, st.theme), [w, st.raw, st.skyMode, st.theme])
+  const sky = useMemo(() => effectiveSky(w, st.rawNaqi, st.skyMode, st.theme), [w, st.rawNaqi, st.skyMode, st.theme])
 
   const selStd = (s: Standard) => { hap(); patch({ standard: s }) }
   const tabStyle = (on: boolean): CSSProperties => ({

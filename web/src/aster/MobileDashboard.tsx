@@ -46,7 +46,7 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh }: Props
   const w = st.weather
   const loading = st.loading
   const v = useMemo(() => deriveView(st, dark), [st, dark])
-  const sky = useMemo(() => effectiveSky(w, st.raw, st.skyMode, st.theme), [w, st.raw, st.skyMode, st.theme])
+  const sky = useMemo(() => effectiveSky(w, st.rawNaqi, st.skyMode, st.theme), [w, st.rawNaqi, st.skyMode, st.theme])
 
   const std = st.standard
   const sIdx = std === 'naqi' ? 0 : std === 'eaqi' ? 1 : 2

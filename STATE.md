@@ -106,6 +106,29 @@
   canvas. Sandbox emulates prefers-reduced-motion → CSS durations verified via computed
   styles; shader fade unaffected by that media query.
 
+## Round 6 — 2026-07-10 (geolocate-first, regulatory AQI bases, sun placement)
+- REVERSES the Round-1 locked "no auto-geolocate" decision PER EXPLICIT USER DIRECTIVE:
+  mount now calls geolocate(false, fallback) — granted → user coords + regional locality
+  ("Bandra West · Mumbai, Maharashtra", verified live via stubbed coords); denied/timeout/
+  no-API → Mumbai fallback (verified live: headless auto-deny → Mumbai + data loaded).
+- AQI methodology corrected (useAster.fetchAQI): indexes no longer computed from
+  instantaneous readings. New state rawNaqi (CPCB basis: 24h means PM/NO2/SO2/NH3, 8h
+  rolling max CO/O3, ≥12h/≥6h data floors) + rawEaqi (EEA basis: 24h-mean PM + latest-hour
+  gases) from hourly series (past_days=1, observed hours only, string-compare time cutoff).
+  computeIndexes(raw, rawE?) gained optional EAQI basis; derive/fcData/effectiveSky
+  consumers switched to rawNaqi/rawEaqi; st.raw stays the instantaneous "Raw
+  concentrations" readout. Verified: independent recomputation NAQI 52 / EAQI 2 == app
+  display (old instantaneous method would have shown ~70 — O3 spike).
+- Sun: aspect-aware anchor — asp.x<0.55 (phones) keeps (0.76,0.88); wider desktop shells
+  → (0.56,0.87) open sky band between hero columns. R 0.066→0.072. Realism rebalance:
+  disc is now the brightest element (halo/bloom/rim cut 0.5/0.28/0.45→0.30/0.18/0.20,
+  photosphere brightened) — fixes the "eclipse ring" read when partially occluded.
+  Verified via manual-uniform shader drive + pixel profile: center L237 > justOut 216 >
+  halo 175, symmetric ±4 lum, anchor exact; desktop screenshot clean.
+- Sandbox note: background-tab rAF suspension + intensive timer throttling makes live
+  loops unverifiable in hidden preview tabs; driving the app's own GL program with manual
+  uniforms + drawArrays is the reliable probe path.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).

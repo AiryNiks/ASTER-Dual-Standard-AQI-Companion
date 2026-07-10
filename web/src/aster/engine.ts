@@ -183,7 +183,9 @@ export interface Indexes {
   eaqi: { level: number; band: string; dominant: string }
 }
 
-export function computeIndexes(raw: Partial<RawPollutants>): Indexes {
+// rawE lets the EAQI use its own regulatory basis (EEA: 24h-mean PM + latest-hour
+// gases) when the caller has one; it defaults to the NAQI basis for compatibility.
+export function computeIndexes(raw: Partial<RawPollutants>, rawE?: Partial<RawPollutants>): Indexes {
   const np = ['pm2_5', 'pm10', 'no2', 'o3', 'so2', 'co', 'nh3']
   const sub: Record<string, number> = {}
   let mx = 0
@@ -199,11 +201,12 @@ export function computeIndexes(raw: Partial<RawPollutants>): Indexes {
     }
   })
   const naqi = { aqi: Math.round(mx), band: naqiCat(mx), dominant: dom, sub }
+  const eb = rawE || raw
   const ep = ['pm2_5', 'pm10', 'no2', 'o3', 'so2']
   let mb = 1
   let ed = 'pm2_5'
   ep.forEach((p) => {
-    const b = eaqiBand(p, (raw as any)[p])
+    const b = eaqiBand(p, (eb as any)[p])
     if (b != null && b > mb) {
       mb = b
       ed = p

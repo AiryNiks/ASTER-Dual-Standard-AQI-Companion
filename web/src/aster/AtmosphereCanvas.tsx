@@ -105,10 +105,12 @@ float um=min(asp.x,1.0);
 // SUN gates on the LIGHT theme (dayF is 1 there), never the dark theme.
 float sunGate=(1.0-uDark)*clearF;
 if(sunGate>0.004){
-  vec2 sunPos=vec2(0.76,0.88)*asp;
+  // Anchor by shell shape: phone-narrow canvases (asp<0.55) keep the top-right corner;
+  // wider desktop shells put the sun in the open sky band between the hero columns.
+  vec2 sunPos=(asp.x<0.55?vec2(0.76,0.88):vec2(0.56,0.87))*asp;
   vec2 sv=(p-sunPos)/um;
   float sd=length(sv);
-  float R=0.066;
+  float R=0.072;
   float shim=1.0+0.030*sin(t*1.35)+0.020*sin(t*0.57+1.7);
   // Volumetric corona = three falloffs. Cartesian noise wisps break the ring symmetry
   // (angular noise would seam at the atan wrap); the branch skips the fbm for the ~90%
@@ -120,21 +122,21 @@ if(sunGate>0.004){
   float bloom=exp(-sd*sd*260.0)*0.85;
   // Additive orange on a bright pastel sky washes to white, so the WIDE glow tints the
   // sky toward amber (pulls blue down); only the inner layers add light on top.
-  col=mix(col,vec3(1.0,0.63,0.22),clamp((aura+mid)*shim,0.0,1.0)*0.80*sunGate);
-  col+=vec3(1.0,0.60,0.20)*mid*0.28*sunGate*shim;
-  col+=vec3(1.0,0.83,0.54)*bloom*0.50*sunGate*shim;
+  col=mix(col,vec3(1.0,0.63,0.22),clamp((aura+mid)*shim,0.0,1.0)*0.70*sunGate);
+  col+=vec3(1.0,0.60,0.20)*mid*0.18*sunGate*shim;
+  col+=vec3(1.0,0.83,0.54)*bloom*0.30*sunGate*shim;
   // Photosphere: limb-darkened disc — near-white cream core through gold to a deep
   // amber rim (mu = cosine of the emergent angle), two-scale drifting granulation,
   // and a thin chromosphere ring hugging the limb. Edge is smoothstep-antialiased.
   float disc=1.0-smoothstep(R-0.0028,R+0.0028,sd);
   if(disc>0.001){
     float mu=sqrt(max(1.0-(sd*sd)/(R*R),0.0));
-    float limbD=0.44+0.56*pow(mu,0.62);
-    vec3 sc=mix(vec3(0.994,0.82,0.30),vec3(1.0,0.973,0.878),pow(mu,1.35));
-    sc=mix(vec3(0.96,0.60,0.13),sc,smoothstep(0.0,0.40,mu));
+    float limbD=0.46+0.54*pow(mu,0.62);
+    vec3 sc=mix(vec3(0.998,0.86,0.34),vec3(1.0,0.99,0.94),pow(mu,1.35));
+    sc=mix(vec3(0.97,0.62,0.14),sc,smoothstep(0.0,0.40,mu));
     float gr1=fbm(sv*150.0+vec2(t*0.016,-t*0.011));
     float gr2=fbm(sv*52.0+vec2(-t*0.009,t*0.007)+5.2);
-    float gran=0.94+0.10*(gr1-0.5)+0.08*(gr2-0.5);
+    float gran=0.965+0.08*(gr1-0.5)+0.06*(gr2-0.5);
     vec3 sunSurf=sc*limbD*gran;
     sunSurf+=vec3(0.98,0.45,0.14)*smoothstep(R*0.84,R,sd)*0.30;
     col=mix(col,sunSurf,disc*sunGate);
@@ -143,7 +145,7 @@ if(sunGate>0.004){
   // pow() with a negative base is undefined in GLSL).
   float dr=(sd-R)*34.0;
   float rim=exp(-dr*dr)*(1.0-disc);
-  col+=vec3(1.0,0.75,0.40)*rim*0.45*sunGate*shim;
+  col+=vec3(1.0,0.75,0.40)*rim*0.20*sunGate*shim;
 }
 // MOON gates on the DARK theme only (never light).
 float moonGate=uDark*clearF;

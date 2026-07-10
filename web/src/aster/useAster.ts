@@ -28,6 +28,10 @@ export interface AsterState {
   observedAt: string
   weather: Weather
   raw: RawPollutants
+  // Regulatory index bases: NAQI wants 24h means (8h max for CO/O3), EAQI wants
+  // 24h-mean PM + latest-hour gases. `raw` stays the instantaneous readout.
+  rawNaqi: RawPollutants
+  rawEaqi: RawPollutants
 }
 
 const initialTheme: Theme =
@@ -51,6 +55,8 @@ export function useAster() {
     observedAt: new Date().toISOString(),
     weather: DEFAULT_WEATHER,
     raw: DEFAULT_RAW,
+    rawNaqi: DEFAULT_RAW,
+    rawEaqi: DEFAULT_RAW,
   })
   const patch = useCallback((p: Partial<AsterState>) => setState((s) => ({ ...s, ...p })), [])
 
@@ -116,9 +122,10 @@ export function useAster() {
 
   const fetchAQI = useCallback(async (lat: number, lon: number) => {
     try {
+      const POLLS = 'pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,ammonia'
       const url =
         'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon +
-        '&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,ammonia&timezone=auto'
+        '&current=' + POLLS + '&hourly=' + POLLS + '&past_days=1&forecast_days=1&timezone=auto'
       const r = await fetch(url)
       if (!r.ok) throw 0
       const j = await r.json()
@@ -133,7 +140,52 @@ export function useAster() {
         nh3: c.ammonia ?? null,
         pb: null,
       }
-      patch({ raw })
+      // Regulatory aggregates from the hourly series, observed hours only (the series
+      // spans yesterday 00:00 → today 23:00; entries after `current.time` are forecast).
+      // Same "YYYY-MM-DDTHH:mm" local format on both sides, so string compare is safe.
+      const H = j.hourly || {}
+      const times: string[] = H.time || []
+      let end = -1
+      for (let i = 0; i < times.length; i++) if (times[i] <= c.time) end = i
+      const mean24 = (arr: (number | null)[] | undefined): number | null => {
+        if (!arr || end < 0) return null
+        const w = arr.slice(Math.max(0, end - 23), end + 1).filter((v) => v != null) as number[]
+        return w.length >= 12 ? w.reduce((s, v) => s + v, 0) / w.length : null
+      }
+      const max8h = (arr: (number | null)[] | undefined): number | null => {
+        if (!arr || end < 0) return null
+        let m: number | null = null
+        for (let s = end - 23; s <= end - 7; s++) {
+          const seg = arr.slice(Math.max(0, s), s + 8).filter((v) => v != null) as number[]
+          if (seg.length >= 6) {
+            const mv = seg.reduce((a, b) => a + b, 0) / seg.length
+            if (m == null || mv > m) m = mv
+          }
+        }
+        return m
+      }
+      const co8 = max8h(H.carbon_monoxide)
+      const rawNaqi: RawPollutants = {
+        pm2_5: mean24(H.pm2_5) ?? raw.pm2_5,
+        pm10: mean24(H.pm10) ?? raw.pm10,
+        no2: mean24(H.nitrogen_dioxide) ?? raw.no2,
+        so2: mean24(H.sulphur_dioxide) ?? raw.so2,
+        o3: max8h(H.ozone) ?? raw.o3,
+        co: co8 == null ? raw.co : Math.round(co8 / 10) / 100,
+        nh3: mean24(H.ammonia) ?? raw.nh3,
+        pb: null,
+      }
+      const rawEaqi: RawPollutants = {
+        pm2_5: rawNaqi.pm2_5,
+        pm10: rawNaqi.pm10,
+        no2: raw.no2,
+        so2: raw.so2,
+        o3: raw.o3,
+        co: null,
+        nh3: null,
+        pb: null,
+      }
+      patch({ raw, rawNaqi, rawEaqi })
     } catch (e) {
       /* keep sample */
     }
@@ -176,9 +228,12 @@ export function useAster() {
   )
 
   const geolocate = useCallback(
-    (manual?: boolean) => {
+    (manual?: boolean, onFail?: () => void) => {
       if (manual) hap()
-      if (!navigator.geolocation) return
+      if (!navigator.geolocation) {
+        if (onFail) onFail()
+        return
+      }
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const la = pos.coords.latitude
@@ -186,8 +241,10 @@ export function useAster() {
           patch({ lat: la, lon: lo })
           loadFor(la, lo)
         },
-        () => {},
-        { timeout: 8000, maximumAge: 6e5, enableHighAccuracy: false },
+        () => {
+          if (onFail) onFail()
+        },
+        { timeout: 12000, maximumAge: 6e5, enableHighAccuracy: false },
       )
     },
     [hap, patch, loadFor],
@@ -202,10 +259,11 @@ export function useAster() {
     spinTimer.current = setTimeout(() => patch({ spinning: false }), 850)
   }, [hap, patch, loadFor, state.lat, state.lon])
 
-  // Initial load for the default location (Mumbai). We intentionally do NOT auto-prompt
-  // for geolocation on first paint — the user opts in via the locate button.
+  // Ask for the user's location on first paint. Granted → their coords + regional
+  // locality name (reverse-geocoded, e.g. "Bandra West"); denied, timed out, or no
+  // geolocation API → fall back to Mumbai.
   useEffect(() => {
-    loadFor(19.076, 72.8777)
+    geolocate(false, () => loadFor(19.076, 72.8777))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

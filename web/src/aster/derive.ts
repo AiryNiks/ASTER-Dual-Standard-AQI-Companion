@@ -16,7 +16,7 @@ import type { AsterState } from './useAster'
 
 export function deriveView(st: AsterState, dark: boolean) {
   const w = st.weather
-  const idx = computeIndexes(st.raw)
+  const idx = computeIndexes(st.rawNaqi, st.rawEaqi)
   const band = strictestBand(idx)
   const vd = verdict(band, st.activity, st.profile)
   const naqiOrd = NAQI_ORD[idx.naqi.band] || 1
@@ -53,12 +53,12 @@ export function deriveView(st: AsterState, dark: boolean) {
   else if (naqiOrd > idx.eaqi.level) divergenceNote = 'India rates this ' + idx.naqi.band + ' — stricter than the European band ' + idx.eaqi.band + '.'
   else divergenceNote = 'Both standards agree: ' + idx.eaqi.band + '.'
 
-  const fc = fcData(w, st.raw)
+  const fc = fcData(w, st.rawNaqi)
 
   const outfit = { avoid: 'Mask up and keep outdoor time short.', caution: 'Keep a mask handy if you head out.', safe: 'Lovely conditions — enjoy being outside.' }[vd.key]
   const asterTake = SEV_NAMES[band] + ' air with ' + (w.label || '').toLowerCase() + '. ' + outfit
 
-  const eff = effectiveSky(w, st.raw, st.skyMode, st.theme)
+  const eff = effectiveSky(w, st.rawNaqi, st.skyMode, st.theme)
   const severeOn = (eff.storm || 0) > 0.5 || (eff.rain || 0) >= 0.7
   const severeTitle = (eff.storm || 0) > 0.5 ? 'Severe weather protocol · Thunderstorm' : 'Severe weather protocol · Heavy rain'
   const severeMsg = vd.key === 'avoid' ? 'Commute risk elevated — air and weather both advise staying in.' : 'Commute and outdoor risk elevated. Plan around waterlogging and low visibility.'
