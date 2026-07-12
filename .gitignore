@@ -39,6 +39,9 @@ pnpm-debug.log*
 *.swp
 .claude/settings.local.json
 
+# ── Local working memory (session log — stays off GitHub) ────
+STATE.md
+
 # ── Operating system ─────────────────────────────────────────
 .DS_Store
 Thumbs.db

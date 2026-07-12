@@ -92,12 +92,6 @@ export const ACT_LABELS: Record<string, string> = {
   commute: 'Commute',
   general: 'General',
 }
-export const PROF_LABELS: Record<string, string> = {
-  adult: 'Adult',
-  child: 'Child',
-  senior: 'Senior',
-  respiratory_sensitive: 'Sensitive',
-}
 
 export const POLL: [keyof RawPollutants, string, string][] = [
   ['pm2_5', 'PM2.5', 'µg/m³'],
@@ -126,13 +120,6 @@ export const WMO: Record<number, string> = {
   71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains', 80: 'Rain showers',
   81: 'Heavy showers', 82: 'Violent showers', 85: 'Snow showers', 86: 'Snow showers',
   95: 'Thunderstorm', 96: 'Storm, hail', 99: 'Storm, hail',
-}
-
-export const ACCENTS: Record<string, [string, string]> = {
-  '#3F63C6': ['#7E9EEA', 'rgba(63,99,198,0.24)'],
-  '#7C3AED': ['#B197F5', 'rgba(124,58,237,0.24)'],
-  '#0E9F8E': ['#54CFBF', 'rgba(14,159,142,0.22)'],
-  '#E0507E': ['#F2A2BC', 'rgba(224,80,126,0.22)'],
 }
 
 // NAQI (CPCB) sub-index breakpoint tables and EAQI (EEA) band edges.
