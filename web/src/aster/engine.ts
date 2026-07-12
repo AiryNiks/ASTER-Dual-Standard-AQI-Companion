@@ -354,16 +354,24 @@ export function verdict(band: number, act: string, prof: string): Verdict {
 // rain) off trace modeled precip — e.g. code 51 "light drizzle" with only 0.1 mm and 74%
 // cloud, which everyone else (and the sky itself) reads as simply cloudy. When a LIGHT
 // precip code carries under a perceptible amount of precipitation, reclassify it by cloud
-// cover. Moderate/heavy rain (63/65), showers (80+), snow, fog and storms are never
-// touched, so genuine precipitation always stands.
+// cover. The model's convective scheme over-reports the same way for THUNDERSTORMS: high
+// monsoon CAPE paints code 95 across whole afternoons while actual precipitation stays at
+// a trace (verified live 2026-07-12: code 95 + 0.2 mm + user-confirmed no storm). An
+// occurring thunderstorm rains, so code 95 under 0.5 mm is reclassified too. Moderate/
+// heavy rain (63/65), showers (80+), snow, fog and hail storms (96/99) are never touched,
+// so genuine precipitation always stands.
 const LIGHT_PRECIP_CODES = new Set([51, 53, 56, 57, 61])
 const PRECIP_MIN_MM = 0.2
+const STORM_PRECIP_MIN_MM = 0.5
 export function reconcileWeatherCode(
   code: number,
   precipMm: number | null | undefined,
   cloud: number | null | undefined,
 ): number {
-  if (!LIGHT_PRECIP_CODES.has(code) || (precipMm || 0) >= PRECIP_MIN_MM) return code
+  const p = precipMm || 0
+  const overReported =
+    (LIGHT_PRECIP_CODES.has(code) && p < PRECIP_MIN_MM) || (code === 95 && p < STORM_PRECIP_MIN_MM)
+  if (!overReported) return code
   const cc = cloud == null ? 100 : cloud
   if (cc >= 70) return 3 // Overcast
   if (cc >= 40) return 2 // Partly cloudy

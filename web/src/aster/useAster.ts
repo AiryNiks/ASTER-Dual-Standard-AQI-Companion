@@ -312,12 +312,12 @@ export function useAster() {
       let done = false
       let best: { la: number; lo: number; acc: number } | null = null
       let watchId: number | null = null
-      let deadline: ReturnType<typeof setTimeout>
+      let settle: ReturnType<typeof setTimeout> | null = null
       const stale = () => epoch !== geoEpoch.current
       const cleanup = () => {
         done = true
         if (watchId != null) navigator.geolocation.clearWatch(watchId)
-        clearTimeout(deadline)
+        if (settle != null) clearTimeout(settle)
       }
       const commit = (la: number, lo: number) => {
         if (done) return
@@ -331,6 +331,18 @@ export function useAster() {
         cleanup()
         if (!stale() && onFail) onFail()
       }
+      // The settle window starts at the FIRST callback — never earlier. The old fixed
+      // 10s deadline began counting at registration, i.e. WHILE the permission prompt
+      // was still on screen; answering it after 10s hit an already-cleared watch, so
+      // permission was granted yet the location never updated. No callback can fire
+      // before the permission decision, so arming here can't race the prompt.
+      const armSettle = () => {
+        if (settle != null || done) return
+        settle = setTimeout(() => {
+          if (best) commit(best.la, best.lo)
+          else giveUp()
+        }, 8000)
+      }
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           if (done) return
@@ -339,26 +351,28 @@ export function useAster() {
           const lo = pos.coords.longitude
           const acc = pos.coords.accuracy
           if (!best || acc < best.acc) best = { la, lo, acc }
-          if (acc <= 100) commit(la, lo) // neighbourhood-sharp — commit immediately
+          if (acc <= 100) return commit(la, lo) // neighbourhood-sharp — commit immediately
+          // Coarse fix (wifi/desktop positioning never reaches 100 m): give GPS a
+          // bounded window to sharpen, then take the best fix gathered.
+          armSettle()
         },
         (err) => {
           if (done) return
           if (stale()) return cleanup()
-          // Permission denial is permanent — resolve now (best fix or fallback)
-          // instead of sitting silent until the 10s deadline. Other errors
-          // (unavailable/timeout) are transient: let the deadline decide.
-          if (err.code === 1) {
+          // code 1 (denied) is permanent; code 3 (timeout) fires only when no fix
+          // arrived within `timeout` AFTER permission was granted — both resolve now
+          // with the best fix so far, or fall back. code 2 (position unavailable) can
+          // be transient, so it just arms the settle window: a persistent failure
+          // still resolves in bounded time instead of dead-ending the flow.
+          if (err.code === 1 || err.code === 3) {
             if (best) commit(best.la, best.lo)
             else giveUp()
+          } else {
+            armSettle()
           }
         },
         { timeout: 15000, maximumAge: 0, enableHighAccuracy: true },
       )
-      // Hard deadline: take the sharpest fix gathered so far, else fall back.
-      deadline = setTimeout(() => {
-        if (best) commit(best.la, best.lo)
-        else giveUp()
-      }, 10000)
     },
     [hap, patch, loadFor],
   )
