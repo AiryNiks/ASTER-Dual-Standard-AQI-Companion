@@ -259,11 +259,51 @@
   Change is a minimal removal of reverseGeocode from the refresh path; the search/setLocation
   flow itself was runtime-verified in Round 8. Re-verify live when the browser tool returns.
 
+## Round 14 — 2026-07-12 (full code review: rate limiting, races, edge cases, a11y)
+- Round-13 pending verification CLEARED: pick Delhi → Refresh → name persists (live).
+- FIXED (all runtime-verified in preview, desktop + mobile):
+  1. Geolocate race: new geoEpoch ref — setLocation and each newer geolocate() invalidate
+     pending watchPosition watchers, so a late background GPS fix can no longer clobber a
+     manual search pick (verified: Paris pick survives a 6s-late Mumbai fix; watch cleared).
+  2. Permission-denied now resolves immediately (err.code 1 → commit best fix or give up)
+     instead of a silent 10s deadline wait (verified: 102ms vs 10,000ms).
+  3. fetchT(): AbortController timeout (12s data / 8s geocode+search) on every fetch —
+     a hung request can no longer hold skeletons forever.
+  4. Refresh throttled to 850ms (spin duration) — 3 rapid clicks = 1 fetch pair (verified).
+  5. Empty-but-200 responses guarded: missing `current` or all-null pollutants (remote/ocean
+     grid points) treated as failure instead of rendering NAQI 0 "Good".
+  6. Honest freshness: new state.live flag; hero eyebrow shows "Fallback data · live feed
+     unreachable" when fetches fail, restores on recovery (verified both directions).
+  7. Dusk gradient now compared in the LOCATION's local frame (c.time, not Date.now()) —
+     cross-timezone searches no longer get dusk at wrong hours.
+  8. Severe-weather banner gated to skyMode==='live' — Storm/Rain preview chips restyle the
+     sky but no longer raise a FALSE advisory (verified).
+  9. WebGL context loss handled: preventDefault + rebuild on restore (verified via
+     WEBGL_lose_context: new program, sky redraws, 0 GL errors); destroy() now frees
+     program/shaders/buffer.
+  10. Mobile shell height via .m-shell CSS (100vh fallback + 100dvh) — inline 100dvh was
+      dropped wholesale on old browsers, collapsing the layout to 0.
+  11. Location pill keyboard-accessible (role=button, tabIndex, Enter/Space) both versions
+      (verified: focus + Enter opens search).
+  12. App.tsx also re-checks matchMedia on window resize (some embedded viewports never
+      dispatch MQL change events — discovered live in the preview pane).
+  13. ErrorBoundary in main.tsx — render errors show a reload card, not a white page.
+  14. Dead deps removed: three, @types/three, tailwindcss, autoprefixer, postcss
+      (0 source refs; npm audit --omit=dev: 0 vulns; build output unchanged in size class).
+- Reviewed-clean: no secrets, no XSS sinks, all query params encoded, React escaping,
+  Nominatim policy still 1 req/locate. Sandbox notes: preview pane fires NEITHER resize nor
+  MQL change on viewport override, and hidden-tab rAF pause means shader probes must drive
+  the GL program manually (both per prior rounds).
+- Impeccable hook flags Inter font + --ease-spring bounce curve in index.css: both are
+  design-handoff/locked motion-system choices (Round 5) — intentional, NOT suppressed.
+- Build green ×2 (tsc + vite), zero console errors across the whole verification session.
+
 ## Open follow-ups (not done, proposed)
 - `three` + @types/three still in package.json but unused (raw WebGL) — drop in a
   follow-up commit (also removes tailwind/autoprefixer/postcss devDeps).
 - Stale docs describe the old app (prd/design/schema/tracker/rules/appbuilder/
   implementationplan/trd) — archive or rewrite.
-- Audit warnings outstanding: sample-data badge + geolocation-denied feedback,
-  fetch timeouts (AbortController), React ErrorBoundary, Vite upgrade (dev-only
-  esbuild advisory), security headers on the hosting platform.
+- Audit warnings outstanding: geolocation-denied user-facing feedback (toast/message),
+  Vite upgrade (dev-only esbuild advisory GHSA-67mh-4wv8-2f99 — needs Vite ≥6),
+  security headers on the hosting platform. (Sample-data badge, fetch timeouts and
+  ErrorBoundary DONE in Round 14.)

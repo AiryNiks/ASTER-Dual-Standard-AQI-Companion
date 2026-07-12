@@ -94,6 +94,14 @@ input[type='range'] {
   transform: scale(0.96);
 }
 
+/* ---------- Mobile shell ----------
+   100vh first as the universal fallback; 100dvh (keyboard/URL-bar aware) overrides it
+   where supported. Inline styles can't express this two-declaration fallback. */
+.m-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* ---------- Location search rows ---------- */
 .lsrow {
   transition: background 0.2s var(--ease-out);

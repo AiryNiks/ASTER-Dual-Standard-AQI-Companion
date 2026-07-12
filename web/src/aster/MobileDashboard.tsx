@@ -92,14 +92,16 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh, setLoca
   )
 
   return (
-    <div style={{ position: 'relative', height: '100dvh', overflow: 'hidden', background: 'var(--shell)' }}>
+    // Height lives in .m-shell (100vh with a 100dvh override) — an inline 100dvh would
+    // be DROPPED entirely on browsers without dvh support and collapse the layout to 0.
+    <div className="m-shell" style={{ position: 'relative', overflow: 'hidden', background: 'var(--shell)' }}>
       <AtmosphereCanvas sky={sky} />
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'var(--scrim-m)' }} />
 
       <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: 'calc(env(safe-area-inset-top, 0px) + 16px) 16px 120px', zIndex: 10 }}>
         {/* location + controls */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div onClick={() => { hap(); setSearchOpen(true) }} title="Search location" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, cursor: 'pointer' }}>
+          <div role="button" tabIndex={0} aria-label="Search location" onClick={() => { hap(); setSearchOpen(true) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hap(); setSearchOpen(true) } }} title="Search location" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, cursor: 'pointer' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent)', flexShrink: 0 }} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
             <div style={{ lineHeight: 1.1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.locName}</div>
@@ -141,7 +143,7 @@ export function MobileDashboard({ state, patch, hap, geolocate, refresh, setLoca
 
         {/* hero */}
         <div style={{ textAlign: 'center', margin: '18px 0 22px' }}>
-          <div style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--eyebrow)', fontWeight: 600, marginBottom: 6 }}>Air quality now · {v.updatedTime}</div>
+          <div style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--eyebrow)', fontWeight: 600, marginBottom: 6 }}>{v.eyebrow}</div>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center' }}><span className="skeleton" style={{ width: 150, height: 96, borderRadius: 20, display: 'inline-block' }} /></div>
           ) : (

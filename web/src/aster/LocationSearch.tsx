@@ -2,6 +2,7 @@
 // Places come from the Open-Meteo geocoding API (free, key-less, English-pinned);
 // picking one hands lat/lon + display names to the parent and closes the panel.
 import { useEffect, useRef, useState } from 'react'
+import { fetchT } from './useAster'
 
 interface Hit {
   latitude: number
@@ -40,9 +41,11 @@ export function LocationSearch({
     setBusy(true)
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(
+        const r = await fetchT(
           'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(s) + '&count=6&language=en&format=json',
+          8000,
         )
+        if (!r.ok) throw 0
         const j = await r.json()
         if (seq.current === id) setHits(j.results || [])
       } catch (e) {

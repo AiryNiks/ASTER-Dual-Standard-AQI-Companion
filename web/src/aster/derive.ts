@@ -59,17 +59,22 @@ export function deriveView(st: AsterState, dark: boolean) {
   const asterTake = SEV_NAMES[band] + ' air with ' + (w.label || '').toLowerCase() + '. ' + outfit
 
   const eff = effectiveSky(w, st.rawNaqi, st.skyMode, st.theme)
-  const severeOn = (eff.storm || 0) > 0.5 || (eff.rain || 0) >= 0.7
+  // The banner is a real weather ADVISORY — it only fires off live conditions.
+  // Previewing the Storm/Rain sky chips restyles the atmosphere, never the advice.
+  const severeOn = st.skyMode === 'live' && ((eff.storm || 0) > 0.5 || (eff.rain || 0) >= 0.7)
   const severeTitle = (eff.storm || 0) > 0.5 ? 'Severe weather protocol · Thunderstorm' : 'Severe weather protocol · Heavy rain'
   const severeMsg = vd.key === 'avoid' ? 'Commute risk elevated — air and weather both advise staying in.' : 'Commute and outdoor risk elevated. Plan around waterlogging and low visibility.'
   const severeList = ['Allow +30 min commute', 'Avoid underpasses', 'Two-wheelers not advised']
 
   const updatedTime = new Date(st.observedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  // Hero eyebrow: honest about freshness. While loading, keep the normal line (the
+  // skeletons already say "in progress"); once settled without live data, say so.
+  const eyebrow = !st.live && !st.loading ? 'Fallback data · live feed unreachable' : 'Air quality now · Updated ' + updatedTime
 
   return {
     idx, band, vd, hv, hb, hs, hdom, hcol, chipTxt, naqiColor, eaqiColor, naqiFrac,
     pollArr, eaqiSegs, divergenceNote, fc, asterTake, severeOn, severeTitle, severeMsg,
-    severeList, updatedTime,
+    severeList, updatedTime, eyebrow,
   }
 }
 

@@ -25,6 +25,9 @@ export interface AsterState {
   skyMode: SkyMode
   spinning: boolean
   loading: boolean
+  // False until a real AQI response commits — and set back to false when a fetch for the
+  // CURRENT location fails, so sample/stale readings are never presented as live.
+  live: boolean
   theme: Theme
   observedAt: string
   weather: Weather
@@ -33,6 +36,14 @@ export interface AsterState {
   // 24h-mean PM + latest-hour gases. `raw` stays the instantaneous readout.
   rawNaqi: RawPollutants
   rawEaqi: RawPollutants
+}
+
+// fetch with a hard timeout — a hung request would otherwise hold the loading
+// skeletons forever (loading only clears when every fetch settles).
+export function fetchT(url: string, ms = 12000): Promise<Response> {
+  const ctl = new AbortController()
+  const t = setTimeout(() => ctl.abort(), ms)
+  return fetch(url, { signal: ctl.signal }).finally(() => clearTimeout(t))
 }
 
 const initialTheme: Theme =
@@ -52,6 +63,7 @@ export function useAster() {
     skyMode: 'live',
     spinning: false,
     loading: true,
+    live: false,
     theme: initialTheme,
     observedAt: new Date().toISOString(),
     weather: DEFAULT_WEATHER,
@@ -65,6 +77,10 @@ export function useAster() {
   // before writing, so a slow response for an old location can never overwrite a newer
   // one when the user rapidly searches/relocates. Refs are stable — no dep-array churn.
   const reqSeq = useRef(0)
+  // Geolocation epoch. Each geolocate() captures the current value; a newer geolocate or
+  // an explicit manual pick (setLocation) bumps it, which cancels every older pending
+  // watch — a background GPS fix must never clobber a location the user chose later.
+  const geoEpoch = useRef(0)
 
   const hap = useCallback(() => {
     try {
@@ -80,10 +96,12 @@ export function useAster() {
         'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
         '&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,wind_speed_10m' +
         '&hourly=precipitation_probability&daily=sunrise,sunset&forecast_days=2&timezone=auto'
-      const r = await fetch(url)
+      const r = await fetchT(url)
       if (!r.ok) throw 0
       const j = await r.json()
       const c = j.current
+      // A 200 without the current block (rare API hiccup) must not render as data.
+      if (!c) throw 0
       let rc: number | null = null
       if (j.hourly && j.hourly.time) {
         const now = new Date(c.time).getTime()
@@ -96,7 +114,10 @@ export function useAster() {
       const sun: number[] = []
       ;((j.daily && j.daily.sunrise) || []).forEach((s: string) => sun.push(new Date(s).getTime()))
       ;((j.daily && j.daily.sunset) || []).forEach((s: string) => sun.push(new Date(s).getTime()))
-      const dusk = duskF(Date.now(), sun)
+      // Compare in the LOCATION's local frame: sunrise/sunset and c.time are all
+      // zone-less local strings parsed the same way, so c.time is the right "now".
+      // Date.now() here would misplace dusk for locations outside the browser's zone.
+      const dusk = duskF(new Date(c.time).getTime(), sun)
       // Correct trace-precip drizzle codes to their real (cloud-based) condition before
       // it drives the label, icon and sky — see reconcileWeatherCode.
       const code = reconcileWeatherCode(c.weather_code, c.precipitation, c.cloud_cover)
@@ -136,10 +157,11 @@ export function useAster() {
       const url =
         'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + lat + '&longitude=' + lon +
         '&current=' + POLLS + '&hourly=' + POLLS + '&past_days=1&forecast_days=1&timezone=auto'
-      const r = await fetch(url)
+      const r = await fetchT(url)
       if (!r.ok) throw 0
       const j = await r.json()
       const c = j.current
+      if (!c) throw 0
       const raw: RawPollutants = {
         pm2_5: c.pm2_5 ?? null,
         pm10: c.pm10 ?? null,
@@ -150,6 +172,9 @@ export function useAster() {
         nh3: c.ammonia ?? null,
         pb: null,
       }
+      // All-null current readings (some ocean/remote grid points) would compute as
+      // NAQI 0 "Good" — treat the response as a failure and keep what we have.
+      if (Object.values(raw).every((v) => v == null)) throw 0
       // Regulatory aggregates from the hourly series, observed hours only (the series
       // spans yesterday 00:00 → today 23:00; entries after `current.time` are forecast).
       // Same "YYYY-MM-DDTHH:mm" local format on both sides, so string compare is safe.
@@ -196,9 +221,11 @@ export function useAster() {
         pb: null,
       }
       if (seq != null && seq !== reqSeq.current) return
-      patch({ raw, rawNaqi, rawEaqi })
+      patch({ raw, rawNaqi, rawEaqi, live: true })
     } catch (e) {
-      /* keep sample */
+      // Keep the previous readings, but mark them non-live so the UI can say so —
+      // only if this failure is for the location currently shown (seq guard).
+      if (seq == null || seq === reqSeq.current) patch({ live: false })
     }
   }, [patch])
 
@@ -211,8 +238,9 @@ export function useAster() {
     try {
       // accept-language=en pins English names — without it Nominatim follows the
       // device's Accept-Language and can return native-script names (e.g. Devanagari).
-      const r = await fetch(
+      const r = await fetchT(
         'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lon + '&zoom=16&addressdetails=1&accept-language=en',
+        8000,
       )
       if (r.ok) {
         const a = (await r.json()).address || {}
@@ -231,8 +259,9 @@ export function useAster() {
       /* fall through to BigDataCloud */
     }
     try {
-      const r = await fetch(
+      const r = await fetchT(
         'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lon + '&localityLanguage=en',
+        8000,
       )
       if (!r.ok) throw 0
       const j = await r.json()
@@ -279,37 +308,49 @@ export function useAster() {
       // network fix for a sharper GPS one. getCurrentPosition would return that early
       // low-accuracy fix — the "wrong neighbourhood on load, right after refresh" bug.
       // maximumAge:0 forbids a stale cached position; enableHighAccuracy:true asks for GPS.
+      const epoch = ++geoEpoch.current
       let done = false
       let best: { la: number; lo: number; acc: number } | null = null
       let watchId: number | null = null
       let deadline: ReturnType<typeof setTimeout>
+      const stale = () => epoch !== geoEpoch.current
       const cleanup = () => {
+        done = true
         if (watchId != null) navigator.geolocation.clearWatch(watchId)
         clearTimeout(deadline)
       }
       const commit = (la: number, lo: number) => {
         if (done) return
-        done = true
         cleanup()
+        if (stale()) return
         patch({ lat: la, lon: lo })
         loadFor(la, lo)
       }
       const giveUp = () => {
         if (done) return
-        done = true
         cleanup()
-        if (onFail) onFail()
+        if (!stale() && onFail) onFail()
       }
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
+          if (done) return
+          if (stale()) return cleanup() // superseded by a newer locate or a manual pick
           const la = pos.coords.latitude
           const lo = pos.coords.longitude
           const acc = pos.coords.accuracy
           if (!best || acc < best.acc) best = { la, lo, acc }
           if (acc <= 100) commit(la, lo) // neighbourhood-sharp — commit immediately
         },
-        () => {
-          /* transient errors: let the deadline decide using the best fix so far */
+        (err) => {
+          if (done) return
+          if (stale()) return cleanup()
+          // Permission denial is permanent — resolve now (best fix or fallback)
+          // instead of sitting silent until the 10s deadline. Other errors
+          // (unavailable/timeout) are transient: let the deadline decide.
+          if (err.code === 1) {
+            if (best) commit(best.la, best.lo)
+            else giveUp()
+          }
         },
         { timeout: 15000, maximumAge: 0, enableHighAccuracy: true },
       )
@@ -327,6 +368,9 @@ export function useAster() {
     (lat: number, lon: number, name: string, sub: string) => {
       hap()
       const seq = ++reqSeq.current
+      // An explicit pick outranks any in-flight geolocation watch — cancel them all,
+      // or a background GPS fix landing seconds later would overwrite this choice.
+      geoEpoch.current++
       patch({ lat, lon, locName: name, locSub: sub, loading: true })
       Promise.allSettled([fetchWeather(lat, lon, seq), fetchAQI(lat, lon, seq)]).then(() => {
         if (seq === reqSeq.current) patch({ loading: false })
@@ -336,7 +380,13 @@ export function useAster() {
   )
 
   const spinTimer = useRef<ReturnType<typeof setTimeout>>()
+  const lastRefresh = useRef(0)
   const refresh = useCallback(() => {
+    // Throttle to the spin animation's duration — hammering the button must not
+    // hammer the APIs (each accepted refresh is two upstream requests).
+    const now = Date.now()
+    if (now - lastRefresh.current < 850) return
+    lastRefresh.current = now
     hap()
     patch({ spinning: true })
     // Re-fetch conditions only — NOT the location name. The coordinates are unchanged, so

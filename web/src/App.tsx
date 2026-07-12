@@ -15,8 +15,15 @@ export default function App() {
   useEffect(() => {
     const mq = window.matchMedia(MOBILE_QUERY)
     const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    const sync = () => setIsMobile(mq.matches)
     mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
+    // Some embedded/emulated viewports resize without dispatching MQL change events —
+    // re-checking on window resize keeps the desktop/mobile switch reliable everywhere.
+    window.addEventListener('resize', sync)
+    return () => {
+      mq.removeEventListener('change', onChange)
+      window.removeEventListener('resize', sync)
+    }
   }, [])
 
   // Push the theme CSS variables onto the root on every theme change.

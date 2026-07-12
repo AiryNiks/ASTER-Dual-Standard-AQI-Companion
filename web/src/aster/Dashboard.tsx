@@ -123,7 +123,7 @@ export function Dashboard({ state, patch, hap, geolocate, refresh, setLocation }
             <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 20, color: 'var(--ink)' }}>Aster</span>
           </div>
 
-          <div onClick={() => { hap(); setSearchOpen(true) }} title="Search location" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px 8px 15px', borderRadius: 999, background: 'var(--glass-2)', border: '1px solid var(--card-brd)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', boxShadow: 'var(--card-sh-s)', cursor: 'pointer' }}>
+          <div role="button" tabIndex={0} aria-label="Search location" onClick={() => { hap(); setSearchOpen(true) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hap(); setSearchOpen(true) } }} title="Search location" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px 8px 15px', borderRadius: 999, background: 'var(--glass-2)', border: '1px solid var(--card-brd)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', boxShadow: 'var(--card-sh-s)', cursor: 'pointer' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent)' }} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
             <div style={{ lineHeight: 1.15 }}>
               <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{st.locName}</div>
@@ -170,7 +170,7 @@ export function Dashboard({ state, patch, hap, geolocate, refresh, setLocation }
         {/* hero + weather card */}
         <div style={{ display: 'flex', gap: 30, alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 300, paddingTop: 6 }}>
-            <div style={{ ...eyebrow, letterSpacing: '0.2em', marginBottom: 16 }}>Air quality now · Updated {v.updatedTime}</div>
+            <div style={{ ...eyebrow, letterSpacing: '0.2em', marginBottom: 16 }}>{v.eyebrow}</div>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 22 }}>
                 <Skel w={168} h={116} br={20} />

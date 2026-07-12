@@ -250,8 +250,10 @@ function makeSky(canvas: HTMLCanvasElement, init: EffectiveSky): SkyHandle {
     return sh
   }
   const prog = glc.createProgram()!
-  glc.attachShader(prog, mk(glc.VERTEX_SHADER, VS))
-  glc.attachShader(prog, mk(glc.FRAGMENT_SHADER, FS))
+  const vsh = mk(glc.VERTEX_SHADER, VS)
+  const fsh = mk(glc.FRAGMENT_SHADER, FS)
+  glc.attachShader(prog, vsh)
+  glc.attachShader(prog, fsh)
   glc.linkProgram(prog)
   glc.useProgram(prog)
   const buf = glc.createBuffer()
@@ -361,6 +363,12 @@ function makeSky(canvas: HTMLCanvasElement, init: EffectiveSky): SkyHandle {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', size)
       if (ro) ro.disconnect()
+      // Free GPU objects — the canvas element outlives this handle when the sky is
+      // rebuilt (context restore, StrictMode remount), so GC can't be relied on.
+      glc.deleteProgram(prog)
+      glc.deleteShader(vsh)
+      glc.deleteShader(fsh)
+      glc.deleteBuffer(buf)
     },
   }
 }
@@ -368,18 +376,35 @@ function makeSky(canvas: HTMLCanvasElement, init: EffectiveSky): SkyHandle {
 export function AtmosphereCanvas({ sky, style }: { sky: EffectiveSky; style?: React.CSSProperties }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const handle = useRef<SkyHandle | null>(null)
-  // create once
+  const skyRef = useRef(sky)
+  // create once + survive WebGL context loss (mobile tab discard / GPU reset would
+  // otherwise blank the sky permanently). preventDefault on `lost` opts into the
+  // `restored` event, where a fresh program is compiled on the recovered context.
   useEffect(() => {
-    if (!ref.current) return
-    handle.current = makeSky(ref.current, sky)
-    return () => {
+    const canvas = ref.current
+    if (!canvas) return
+    handle.current = makeSky(canvas, skyRef.current)
+    const onLost = (e: Event) => {
+      e.preventDefault()
       handle.current?.destroy()
       handle.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const onRestored = () => {
+      handle.current?.destroy()
+      handle.current = makeSky(canvas, skyRef.current)
+    }
+    canvas.addEventListener('webglcontextlost', onLost)
+    canvas.addEventListener('webglcontextrestored', onRestored)
+    return () => {
+      canvas.removeEventListener('webglcontextlost', onLost)
+      canvas.removeEventListener('webglcontextrestored', onRestored)
+      handle.current?.destroy()
+      handle.current = null
+    }
   }, [])
-  // push updates on every sky change
+  // push updates on every sky change (kept in a ref so a context rebuild starts current)
   useEffect(() => {
+    skyRef.current = sky
     handle.current?.setTarget(sky)
   }, [sky])
   return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', ...style }} />
