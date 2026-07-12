@@ -304,74 +304,81 @@ export function useAster() {
         if (onFail) onFail()
         return
       }
-      // watchPosition (not getCurrentPosition) so we can wait past the first coarse
-      // network fix for a sharper GPS one. getCurrentPosition would return that early
-      // low-accuracy fix — the "wrong neighbourhood on load, right after refresh" bug.
-      // maximumAge:0 forbids a stale cached position; enableHighAccuracy:true asks for GPS.
+      // Commit-first, refine-later. Earlier designs held EVERYTHING back (a fixed
+      // deadline, then a settle window) hoping a sharper GPS fix would arrive first —
+      // on desktops it never does (wifi positioning), so the locality name appeared
+      // 10-15s late. Now the FIRST fix commits immediately (name and data in ~2s);
+      // the watch stays open briefly and re-commits only if a GPS-grade fix actually
+      // MOVES the location (>300m), so a phone's coarse first guess self-corrects.
       const epoch = ++geoEpoch.current
       let done = false
-      let best: { la: number; lo: number; acc: number } | null = null
+      let committed: { la: number; lo: number } | null = null
       let watchId: number | null = null
-      let settle: ReturnType<typeof setTimeout> | null = null
+      let bound: ReturnType<typeof setTimeout> | null = null
       const stale = () => epoch !== geoEpoch.current
-      const cleanup = () => {
+      const finish = () => {
         done = true
         if (watchId != null) navigator.geolocation.clearWatch(watchId)
-        if (settle != null) clearTimeout(settle)
+        if (bound != null) clearTimeout(bound)
       }
-      const commit = (la: number, lo: number) => {
-        if (done) return
-        cleanup()
-        if (stale()) return
+      // Every path resolves in bounded time: whatever arrives first arms this cap.
+      const armBound = () => {
+        if (bound != null || done) return
+        bound = setTimeout(() => {
+          const had = committed != null
+          finish()
+          if (!had && !stale() && onFail) onFail()
+        }, 12000)
+      }
+      const movedM = (la: number, lo: number) => {
+        if (!committed) return Infinity
+        const dLa = (la - committed.la) * 111320
+        const dLo = (lo - committed.lo) * 111320 * Math.cos((la * Math.PI) / 180)
+        return Math.hypot(dLa, dLo)
+      }
+      const commitFix = (la: number, lo: number) => {
+        committed = { la, lo }
         patch({ lat: la, lon: lo })
         loadFor(la, lo)
-      }
-      const giveUp = () => {
-        if (done) return
-        cleanup()
-        if (!stale() && onFail) onFail()
-      }
-      // The settle window starts at the FIRST callback — never earlier. The old fixed
-      // 10s deadline began counting at registration, i.e. WHILE the permission prompt
-      // was still on screen; answering it after 10s hit an already-cleared watch, so
-      // permission was granted yet the location never updated. No callback can fire
-      // before the permission decision, so arming here can't race the prompt.
-      const armSettle = () => {
-        if (settle != null || done) return
-        settle = setTimeout(() => {
-          if (best) commit(best.la, best.lo)
-          else giveUp()
-        }, 8000)
       }
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           if (done) return
-          if (stale()) return cleanup() // superseded by a newer locate or a manual pick
+          if (stale()) return finish() // superseded by a newer locate or a manual pick
           const la = pos.coords.latitude
           const lo = pos.coords.longitude
           const acc = pos.coords.accuracy
-          if (!best || acc < best.acc) best = { la, lo, acc }
-          if (acc <= 100) return commit(la, lo) // neighbourhood-sharp — commit immediately
-          // Coarse fix (wifi/desktop positioning never reaches 100 m): give GPS a
-          // bounded window to sharpen, then take the best fix gathered.
-          armSettle()
+          if (!committed) {
+            commitFix(la, lo)
+            if (acc <= 100) return finish() // already neighbourhood-sharp — done
+            armBound() // coarse: watch a little longer for a GPS correction
+            return
+          }
+          // Refinement: only a high-confidence (GPS-grade) fix may move the shown
+          // location, and only if it genuinely moved — no name flicker for jitter.
+          if (acc <= 100) {
+            if (movedM(la, lo) > 300) commitFix(la, lo)
+            finish()
+          }
         },
         (err) => {
           if (done) return
-          if (stale()) return cleanup()
-          // code 1 (denied) is permanent; code 3 (timeout) fires only when no fix
-          // arrived within `timeout` AFTER permission was granted — both resolve now
-          // with the best fix so far, or fall back. code 2 (position unavailable) can
-          // be transient, so it just arms the settle window: a persistent failure
-          // still resolves in bounded time instead of dead-ending the flow.
+          if (stale()) return finish()
+          // code 1 (denied) is permanent; code 3 = no fix within `timeout` after the
+          // permission decision (the prompt never eats into it). Both resolve now.
+          // code 2 (unavailable) can be transient — the bound cap resolves it.
           if (err.code === 1 || err.code === 3) {
-            if (best) commit(best.la, best.lo)
-            else giveUp()
+            const had = committed != null
+            finish()
+            if (!had && !stale() && onFail) onFail()
           } else {
-            armSettle()
+            armBound()
           }
         },
-        { timeout: 15000, maximumAge: 0, enableHighAccuracy: true },
+        // maximumAge 60s: a fresh-enough cached position returns INSTANTLY (hard
+        // refresh, repeat visit) instead of waiting on a new wifi/GPS query. Any
+        // staleness self-corrects via the GPS refinement above.
+        { timeout: 15000, maximumAge: 60000, enableHighAccuracy: true },
       )
     },
     [hap, patch, loadFor],
